@@ -74,7 +74,11 @@ def build_ik(
 
     group = common.create_group(naming.compose(base, side, "group"), parent=systems_parent, visible=False)
     root = common.create_locator(naming.compose(base + "Root", side, "locator"), match=start)
-    root = cmds.parent(root, parent)[0] if parent else cmds.parent(root, group)[0]
+    root = cmds.parent(root, group)[0]
+    if parent and parent != group:
+        # constrained (not parented) so no helper node ends up in the skeleton
+        cmds.parentConstraint(parent, root, maintainOffset=True)
+        cmds.scaleConstraint(parent, root, maintainOffset=True)
 
     # controls -------------------------------------------------------------
     ik_ctl = Control.create(base, side=side, shape=ik_shape, size=size, parent=control_parent, match=end,

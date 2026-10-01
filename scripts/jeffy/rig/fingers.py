@@ -24,6 +24,7 @@ def build_fingers(
     skip_last=True,
     curl_sign=-1.0,
     color_value=None,
+    base_index=None,
 ):
     """FK finger controls plus pose attributes.
 
@@ -33,6 +34,8 @@ def build_fingers(
         ``spread``, ``relax``, ``<finger>Curl``)
     :param curl_axis: local joint axis fingers curl around
     :param curl_sign: flips the curl direction (depends on joint orientation)
+    :param base_index: ``{finger: index}`` of the first control driven by the
+        attributes (e.g. 1 to skip metacarpal controls); default 0
     :returns: dict ``{"controls": {finger: [Control]}, "attributes": {...}}``
     """
     if isinstance(finger_chains, dict):
@@ -68,15 +71,18 @@ def build_fingers(
             relax_weight = (index + 1) / float(len(non_thumb)) * DEGREES_PER_UNIT * curl_sign
             relax = nodes.multiply(attrs["relax"], relax_weight)
             scaled = nodes.add(scaled, relax)
+        first = (base_index or {}).get(finger, 0)
         for i, ctl in enumerate(ctls):
+            if i < first:
+                continue
             sdk = ctl.last_offset
-            if is_thumb and i == 0:
+            if is_thumb and i == first:
                 # thumb base curls less
                 cmds.connectAttr(nodes.multiply(scaled, 0.3), "%s.rotate%s" % (sdk, curl_axis.upper()), force=True)
             else:
                 cmds.connectAttr(scaled, "%s.rotate%s" % (sdk, curl_axis.upper()), force=True)
-        if not is_thumb and finger in non_thumb and ctls:
+        if not is_thumb and finger in non_thumb and len(ctls) > first:
             factor = (non_thumb.index(finger) - center) * 2.0
             spread = nodes.multiply(attrs["spread"], factor)
-            cmds.connectAttr(spread, "%s.rotate%s" % (ctls[0].last_offset, spread_axis.upper()), force=True)
+            cmds.connectAttr(spread, "%s.rotate%s" % (ctls[first].last_offset, spread_axis.upper()), force=True)
     return {"controls": controls, "attributes": attrs}

@@ -14,6 +14,7 @@ Matching::
 
 from maya import cmds
 
+from jeffy.controls import shapes
 from jeffy.controls.control import Control
 from jeffy.core import attributes, mathlib, matrix, naming, nodes, transform
 from jeffy.joints import tools as joint_tools
@@ -21,6 +22,8 @@ from jeffy.rig import common, fk, ik
 
 SWITCH_ATTR = "ikFk"
 META_PREFIX = "jeffyIkFk_"
+#: IK control attributes zeroed when snapping IK onto FK
+RESET_ON_MATCH = ("twist", "pin", "roll", "bank", "heelTwist", "toeTwist", "ballTwist", "toeTap")
 
 
 def build_ikfk_limb(
@@ -41,11 +44,17 @@ def build_ikfk_limb(
     default_mode=0.0,
     settings_offset=(0.0, 0.0, 0.0),
     orient_end=True,
+    ik_count=None,
+    fk_skip_last=False,
 ):
     """Build a complete IK/FK limb on ``joints`` (bind chain, root -> end).
 
     :param parent: node the limb root follows (e.g. clavicle control/joint)
     :param control_parent: where the IK controls live (e.g. the local control)
+    :param ik_count: number of joints solved by the IK (default: all). Extra
+        joints (e.g. ball/toe of a leg) must be driven by another system such
+        as :func:`jeffy.rig.foot.build_reverse_foot`
+    :param fk_skip_last: no FK control on the last joint (end/tip joints)
     :returns: dict with ``settings``, ``fk``, ``ik``, ``fk_joints``,
         ``ik_joints``, ``switch`` and ``group``
     """
@@ -70,23 +79,24 @@ def build_ikfk_limb(
         cmds.parentConstraint(parent, fk_parent_grp, maintainOffset=True)
         cmds.scaleConstraint(parent, fk_parent_grp, maintainOffset=True)
     fk_result = fk.build_fk_chain(fk_joints, name=name + "FK", side=side, shape=fk_shape, size=size,
-                                  parent=fk_parent_grp, axis=common.primary_axis(fk_joints[1]).lstrip("-"))
+                                  parent=fk_parent_grp, axis=common.primary_axis(fk_joints[1]).lstrip("-"),
+                                  skip_last=fk_skip_last)
+    ik_count = ik_count or len(joints)
 
     # IK -------------------------------------------------------------------
-    ik_result = ik.build_ik(ik_joints, name=name, side=side, parent=parent or group,
+    ik_result = ik.build_ik(ik_joints[:ik_count], name=name, side=side, parent=parent or group,
                             control_parent=control_parent, systems_parent=group, stretch=stretch, soft=soft,
                             pin=pin, pole_distance=pole_distance, ik_shape=ik_shape, size=size,
                             orient_control=orient_ik_control, orient_end=orient_end)
 
     # settings control -----------------------------------------------------
     settings = Control.create(name + "Settings", side=side, shape="gear", size=size * 0.35,
-                              parent=control_parent, match=joints[-1], lock=("t", "r", "s", "v"),
+                              parent=control_parent, match=joints[ik_count - 1], lock=("t", "r", "s", "v"),
                               color_value="white")
     zero = settings.zero
-    cmds.parentConstraint(joints[-1], zero, maintainOffset=True)
+    cmds.parentConstraint(joints[ik_count - 1], zero, maintainOffset=True)
     if any(settings_offset):
-        transform.reset(zero)
-        cmds.xform(settings.node, relative=True, objectSpace=True, translation=settings_offset)
+        shapes.translate_shapes(settings.node, settings_offset)
     switch = attributes.add_attr(settings.node, SWITCH_ATTR, "float", default=default_mode, minimum=0.0,
                                  maximum=1.0)
 
@@ -118,7 +128,7 @@ def build_ikfk_limb(
             [ik_result["pole_control"].node] if ik_result["pole_control"] else []):
         attributes.add_proxy(switch, ctl)
 
-    _store_meta(settings.node, joints, fk_joints, ik_joints, fk_result, ik_result)
+    _store_meta(settings.node, joints, fk_joints, ik_joints, fk_result, ik_result, ik_count)
     return {
         "settings": settings,
         "fk": fk_result,
@@ -133,7 +143,7 @@ def build_ikfk_limb(
 # ---------------------------------------------------------------------------
 # Meta data
 # ---------------------------------------------------------------------------
-def _store_meta(settings, joints, fk_joints, ik_joints, fk_result, ik_result):
+def _store_meta(settings, joints, fk_joints, ik_joints, fk_result, ik_result, ik_count):
     def store(key, items):
         plug = attributes.add_attr(settings, META_PREFIX + key, "message", multi=True)
         for i, item in enumerate(items):
@@ -148,10 +158,12 @@ def _store_meta(settings, joints, fk_joints, ik_joints, fk_result, ik_result):
     if ik_result["pole_control"]:
         store("poleControl", [ik_result["pole_control"].node])
     # IK control relative to the IK end joint (for IK -> FK matching)
-    offset = mathlib.mult(matrix.get_world_matrix(ik_ctl), mathlib.inverse(matrix.get_world_matrix(ik_joints[-1])))
+    ik_end = ik_joints[ik_count - 1]
+    offset = mathlib.mult(matrix.get_world_matrix(ik_ctl), mathlib.inverse(matrix.get_world_matrix(ik_end)))
     plug = attributes.add_attr(settings, META_PREFIX + "ikOffset", "matrix")
     matrix.set_matrix_attr(plug, offset)
-    distance = mathlib.distance(transform.get_position(ik_joints[len(ik_joints) // 2]),
+    attributes.add_attr(settings, META_PREFIX + "ikCount", "int", default=ik_count, keyable=False)
+    distance = mathlib.distance(transform.get_position(ik_joints[1]),
                                 transform.get_position(ik_result["pole_control"].node)) if ik_result[
         "pole_control"] else 1.0
     attributes.add_attr(settings, META_PREFIX + "poleDistance", "float", default=distance, keyable=False)
@@ -211,18 +223,20 @@ def match_ik_to_fk(settings, switch=True, key=False):
     settings = find_settings(settings) or settings
     ik_ctl = _meta(settings, "ikControl")[0]
     pole = (_meta(settings, "poleControl") or [None])[0]
+    count_plug = "%s.%sikCount" % (settings, META_PREFIX)
     fk_joints = _meta(settings, "fkJoints")
+    if cmds.objExists(count_plug):
+        fk_joints = fk_joints[:cmds.getAttr(count_plug)]
     offset = cmds.getAttr("%s.%sikOffset" % (settings, META_PREFIX))
     target = mathlib.mult(offset, matrix.get_world_matrix(fk_joints[-1]))
-    if cmds.objExists(ik_ctl + ".pin") and attributes.is_settable(ik_ctl, "pin"):
-        cmds.setAttr(ik_ctl + ".pin", 0)
-    if cmds.objExists(ik_ctl + ".twist") and attributes.is_settable(ik_ctl, "twist"):
-        cmds.setAttr(ik_ctl + ".twist", 0)
+    for attr in RESET_ON_MATCH:
+        if cmds.objExists("%s.%s" % (ik_ctl, attr)) and attributes.is_settable(ik_ctl, attr):
+            cmds.setAttr("%s.%s" % (ik_ctl, attr), 0)
     matrix.set_world_matrix(ik_ctl, target, scale=False)
     if pole:
         distance = cmds.getAttr("%s.%spoleDistance" % (settings, META_PREFIX))
         positions = [transform.get_position(j) for j in fk_joints]
-        mid = positions[len(positions) // 2]
+        mid = positions[1]
         chain_length = sum(mathlib.distance(a, b) for a, b in zip(positions, positions[1:]))
         factor = distance / chain_length if chain_length else 1.0
         cmds.xform(pole, worldSpace=True,

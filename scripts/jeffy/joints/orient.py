@@ -46,19 +46,25 @@ def _sorted_by_depth(joints):
     return sorted(longs, key=lambda n: n.count("|"))
 
 
-def _plane_up(joint, child, previous_normal):
-    """Bending plane normal around ``joint`` (consistent along the chain)."""
+def _plane_up(joint, child, previous_normal, chain=None):
+    """Bending plane normal at ``joint`` (consistent along the chain).
+
+    The bend at the joint itself (parent, joint, child) is preferred when the
+    parent is part of the oriented ``chain``; otherwise the bend at the child
+    (joint, child, grandchild) is used. Collinear joints reuse the previous
+    normal.
+    """
     j_pos = transform.get_position(joint)
     c_pos = transform.get_position(child)
     candidates = []
+    parent = dag.get_parent(joint)
+    if parent and cmds.nodeType(parent) == "joint" and (chain is None or parent in chain):
+        p_pos = transform.get_position(parent)
+        candidates.append(mathlib.cross(mathlib.sub(j_pos, p_pos), mathlib.sub(c_pos, j_pos)))
     grandchildren = _child_joints(child)
     if grandchildren:
         candidates.append(mathlib.cross(mathlib.sub(c_pos, j_pos),
                                         mathlib.sub(transform.get_position(grandchildren[0]), c_pos)))
-    parent = dag.get_parent(joint)
-    if parent and cmds.nodeType(parent) == "joint":
-        p_pos = transform.get_position(parent)
-        candidates.append(mathlib.cross(mathlib.sub(j_pos, p_pos), mathlib.sub(c_pos, j_pos)))
     for normal in candidates:
         if mathlib.length(normal) > 1e-6:
             normal = mathlib.normalize(normal)
@@ -102,6 +108,7 @@ def orient_joints(
 
     up_name = up_axis.lstrip("+-").lower()
     previous_normal = None
+    chain = set(targets)
     for uid in uuids:
         joint = cmds.ls(uid, long=True)[0]
         children = _child_joints(joint)
@@ -118,7 +125,7 @@ def orient_joints(
                     raise ValueError("up_object is required for up_mode='object'")
                 up_vector = mathlib.sub(transform.get_position(up_object), position)
             elif up_mode == "plane":
-                previous_normal = _plane_up(joint, child, previous_normal)
+                previous_normal = _plane_up(joint, child, previous_normal, chain)
                 up_vector = previous_normal if previous_normal is not None else world_up
             else:  # keep
                 axes = mathlib.axes(matrix.get_world_matrix(joint))
