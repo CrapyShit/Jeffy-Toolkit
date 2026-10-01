@@ -1,0 +1,28 @@
+# Development tooling configuration. The toolkit itself is installed into
+# Maya as a module (see install/drag_and_drop_install.py), not with pip.
+
+[project]
+name = "jeffy-toolkit"
+dynamic = ["version"]
+description = "Rigging toolkit for Autodesk Maya"
+readme = "README.md"
+requires-python = ">=3.7"
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "maya-stubs", "PySide6-Essentials"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py37"
+src = ["scripts", "tools", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I"]
+ignore = ["B905"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["jeffy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

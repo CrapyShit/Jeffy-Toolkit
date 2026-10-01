@@ -117,7 +117,8 @@ def _quad_arrow_outline(size=1.0, width=0.2, head_width=0.45, head_length=0.3):
     neck = size - head_length
     quarter = [(w, 0, w), (w, 0, neck), (hw, 0, neck), (0, 0, size), (-hw, 0, neck), (-w, 0, neck)]
     points = []
-    for angle in (0, 90, 180, 270):
+    # quarters are laid out clockwise seen from above so the outline closes
+    for angle in (0, -90, -180, -270):
         points.extend(_rotate_y(quarter, angle))
     return points + [points[0]]
 

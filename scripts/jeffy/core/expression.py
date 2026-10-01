@@ -14,8 +14,8 @@ Grammar
 -------
 * numbers, plugs (``node.attr``, ``node.attr[0]``, namespaces allowed),
   constants ``pi`` and ``e``
-* operators ``+ - * / ^`` (``^`` = power, right associative), unary ``-``,
-  parentheses
+* operators ``+ - * / ^`` (``^`` = power, right associative), unary ``-``
+  (binds tighter than ``^``: ``-2 ^ 2`` is 4), parentheses
 * comparisons ``== != > >= < <=`` - only inside a ternary ``a > b ? x : y``
 * functions: ``clamp(x, lo, hi)``, ``min(a, b)``, ``max(a, b)``, ``abs(x)``,
   ``sqrt(x)``, ``pow(a, b)``, ``lerp(a, b, t)``, ``reverse(x)``,
@@ -329,7 +329,10 @@ class Builder(object):
     def _binary(self, op, a, b):
         a_const, b_const = isinstance(a, float), isinstance(b, float)
         if a_const and b_const:
-            return _BINARY_FOLD[op](a, b)
+            try:
+                return _BINARY_FOLD[op](a, b)
+            except (ZeroDivisionError, ValueError, OverflowError) as error:
+                raise ExpressionError("Invalid constant operation %r %s %r: %s" % (a, op, b, error)) from error
         backend = self.backend
         if op == "+":
             if a_const and a == 0.0:
@@ -369,7 +372,10 @@ class Builder(object):
             return self.backend.distance_between(names[0], names[1])
         args = [self.build(arg) for arg in arg_exprs]
         if all(isinstance(a, float) for a in args):
-            return _fold(fname, args)
+            try:
+                return _fold(fname, args)
+            except (ZeroDivisionError, ValueError, OverflowError) as error:
+                raise ExpressionError("Invalid arguments for %s(): %s" % (fname, error)) from error
         backend = self.backend
         if fname == "clamp":
             return backend.clamp(args[0], args[1], args[2])

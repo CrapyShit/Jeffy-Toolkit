@@ -87,8 +87,11 @@ def store_bind_pose(controls=None):
     """Store the current values as each control's bind pose."""
     for control in get_controls(controls):
         values = get_pose([control])[naming.strip_namespace(control)]
+        plug = "%s.%s" % (control, BIND_POSE_ATTR)
+        if cmds.objExists(plug):
+            cmds.setAttr(plug, lock=False)
         attributes.set_string(control, BIND_POSE_ATTR, json.dumps(values))
-        cmds.setAttr("%s.%s" % (control, BIND_POSE_ATTR), lock=True)
+        cmds.setAttr(plug, lock=True)
 
 
 def go_to_bind_pose(controls=None):

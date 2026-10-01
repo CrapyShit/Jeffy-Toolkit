@@ -147,8 +147,11 @@ class NamingConvention(object):
         return result.strip(self.separator)
 
     def parse(self, full_name):
-        """Split a name into ``{'side', 'name', 'type'}`` (best effort)."""
-        short = short_name(full_name)
+        """Split a name into ``{'side', 'name', 'type'}`` (best effort).
+
+        DAG paths and namespaces are ignored.
+        """
+        short = strip_namespace(full_name)
         parts = short.split(self.separator)
         side = None
         node_type = None
