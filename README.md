@@ -17,6 +17,7 @@ pipelines.
 | Platforms | Windows, macOS, Linux |
 | Size | ~15k lines, 850+ public functions/classes, 155 one-click tools |
 | Status | `1.0.0`. See [CHANGELOG](CHANGELOG.md) and [ROADMAP](docs/ROADMAP.md) |
+| License | [MIT](LICENSE) |
 
 ---
 
@@ -226,3 +227,7 @@ module while you develop.
 > validated statically (`cmds` commands and flags, OpenMaya names, call
 > signatures), but it's still new, so test new rigs on a copy of your scene and
 > report issues.
+
+## License
+
+Released under the [MIT License](LICENSE).

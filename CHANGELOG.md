@@ -41,6 +41,7 @@ First release.
   biped with tail, prop).
 - **UI**: dockable window with nine tabs, Jeffy menu, shelf, drag-and-drop
   installer and startup script.
+- MIT license.
 - **Development**: pytest suite running without Maya, `tools/check_maya_api.py`
   validating Maya command flags against `maya-stubs`, ruff config and GitHub
   Actions CI.
