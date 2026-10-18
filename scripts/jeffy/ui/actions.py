@@ -500,12 +500,16 @@ def build_spline(controls=3, stretch=True, volume=True, size=1.0):
 
 
 @tool("Ribbon")
-def build_ribbon(joints=5, controls=3, width=None, name="ribbon"):
+def build_ribbon(joints=5, controls=3, width=None, name="ribbon", attach=True):
     from jeffy.rig import ribbon
 
     selection = _selection(2, ordered=True)
     result = ribbon.build_ribbon(selection, name=name, side=naming.side_from_name(selection[0]),
                                  num_joints=joints, num_controls=controls, width=width)
+    if attach:
+        # first/last ribbon controls follow the first/last selected objects,
+        # middle controls follow a blend of both (bendy limb behaviour)
+        ribbon.attach_ends(result, selection[0], selection[-1])
     cmds.select([c.node for c in result["controls"]])
 
 

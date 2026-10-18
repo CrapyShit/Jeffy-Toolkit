@@ -53,11 +53,14 @@ class RiggingPage(w.Page):
         self.ribbon_joints = w.spin(5, 2, 100, 0, 1)
         self.ribbon_controls = w.spin(3, 2, 50, 0, 1)
         self.ribbon_name = w.line_edit("ribbon")
+        self.ribbon_attach = w.check("Attach to selection", True)
         spline.add(w.row(("Joints", self.ribbon_joints), ("Controls", self.ribbon_controls),
-                         ("Name", self.ribbon_name)))
+                         ("Name", self.ribbon_name), self.ribbon_attach))
         spline.add(w.button("Ribbon Between Selection", lambda: actions.build_ribbon(
-            self.ribbon_joints.value(), self.ribbon_controls.value(), None, self.ribbon_name.text() or "ribbon"),
-            "Select two or more objects in order"))
+            self.ribbon_joints.value(), self.ribbon_controls.value(), None, self.ribbon_name.text() or "ribbon",
+            self.ribbon_attach.isChecked()),
+            "Select two or more objects in order. With 'Attach to selection', the ribbon follows the first "
+            "and last objects. Skin your mesh to the ribbon's own joints."))
 
         twist = self.section("Twist / Foot / Fingers", expanded=False)
         self.twist_count = w.spin(3, 1, 20, 0, 1)
