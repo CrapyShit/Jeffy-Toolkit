@@ -52,6 +52,28 @@ def create_group(name, parent=None, match=None, position=None, visible=True, loc
     return group
 
 
+def follow_group(name, driver, parent=None, scale=True):
+    """Group that follows ``driver`` (parent + scale constraint, offset kept).
+
+    Use it as the parent of controls or duplicated chains that must follow a
+    node they cannot be parented under (e.g. a bind joint).
+    """
+    group = create_group(name, parent=parent)
+    if driver:
+        cmds.parentConstraint(driver, group, maintainOffset=True)
+        if scale:
+            cmds.scaleConstraint(driver, group, maintainOffset=True)
+    return group
+
+
+def parent_follow_group(node, name):
+    """``follow_group`` driven by the parent of ``node`` (``None`` if it has none)."""
+    parent = (cmds.listRelatives(node, parent=True) or [None])[0]
+    if not parent:
+        return None
+    return follow_group(name, parent)
+
+
 def create_locator(name, parent=None, match=None, position=None, visible=False):
     locator = cmds.spaceLocator(name=naming.unique_name(name))[0]
     if parent:

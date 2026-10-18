@@ -64,9 +64,6 @@ class ChainComponent(Component):
         elif mode == "dynamic":
             driver = joint_tools.duplicate_chain(self.joints[0], self.joints[-1], search="_JNT",
                                                  replace="_FKD_JNT", parent=self.systems_group)
-            _rig_parent, parent_joint = self.parent_nodes()
-            if parent_joint:
-                cmds.parentConstraint(parent_joint, driver[0], maintainOffset=True)
             result = fk.build_fk_chain(driver, name=self.name, side=self.side, shape=shape, size=size, axis="x",
                                        parent=self.controls_group)
             controls = result["controls"]

@@ -71,8 +71,9 @@ class RiggingPage(w.Page):
                                                                              self.twist_mode.currentText()),
                                  "Select start and end joints")))
         twist.add(w.button("Reverse Foot", actions.build_reverse_foot,
-                           "Select in order: IK control, IK end target, ankle, ball, toe, heel locator, inner "
-                           "locator, outer locator"))
+                           "Select in order: IK control, ankle, ball, toe (IK joints), heel locator, inner "
+                           "locator, outer locator. The IK end target is found automatically (or select it "
+                           "second)."))
         twist.add(w.button("Finger Controls", lambda: actions.build_fingers(self.size_box.value()),
                            "Select finger root joints (and optionally the control receiving the attributes)"))
 
@@ -105,9 +106,12 @@ class RiggingPage(w.Page):
         self.reader_angle = w.spin(60.0, 1.0, 180.0, 1, 5.0)
         attach.add(w.row(("Cone angle", self.reader_angle),
                          w.button("Pose Reader", lambda: actions.create_pose_reader(self.reader_angle.value()),
-                                  "Select joints posed in the target pose")))
+                                  "Select joints posed in the target pose. Connect the reader's weight to a corrective "
+                                  "blendshape target")))
         attach.add(w.grid([
-            w.button("Dynamic Chain (nHair)", actions.create_dynamic_chain, "Select a driven joint chain"),
+            w.button("Dynamic Chain (nHair)", actions.create_dynamic_chain,
+                     "Select a bind joint chain: FK controls + nHair overlap drive it "
+                     "('dynamics' attribute on the first control)"),
             w.button("Connector Line", actions.connector_line, "Line between two objects (pole vector style)"),
         ], 2))
 

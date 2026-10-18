@@ -441,6 +441,15 @@ def _chain_from_selection(minimum=2):
     return chain
 
 
+def _follow_parent(node, label):
+    """Group following the parent of ``node`` (controls built from the UI keep
+    following the rest of the rig instead of staying behind at world)."""
+    from jeffy.rig import common
+
+    name, side = _name_side(node, label)
+    return common.parent_follow_group(node, naming.compose(name + "Follow", side, "group"))
+
+
 def _name_side(joint, default="limb"):
     parsed = naming.parse(joint)
     return parsed["name"] or default, parsed["side"]
@@ -460,7 +469,8 @@ def build_fk(shape="circle", size=1.0, connect="constraint", skip_last=False):
     from jeffy.rig import fk
 
     chain = _chain_from_selection(1)
-    result = fk.build_fk_chain(chain, shape=shape, size=size, connect=connect, skip_last=skip_last)
+    result = fk.build_fk_chain(chain, shape=shape, size=size, connect=connect, skip_last=skip_last,
+                               parent=_follow_parent(chain[0], "fk"))
     cmds.select(result["zero"])
 
 
@@ -495,7 +505,7 @@ def build_spline(controls=3, stretch=True, volume=True, size=1.0):
     chain = _chain_from_selection(3)
     name, side = _name_side(chain[0], "spline")
     result = spline.build_spline_ik(chain, name=name, side=side, num_controls=controls, stretch=stretch,
-                                    volume=volume, size=size)
+                                    volume=volume, size=size, control_parent=_follow_parent(chain[0], "spline"))
     cmds.select([c.node for c in result["controls"]])
 
 
@@ -527,8 +537,20 @@ def build_reverse_foot():
     from jeffy.core import transform
     from jeffy.rig import foot
 
-    selection = _selection(8, ordered=True)
-    ik_ctl, end_target, ankle, ball, toe, heel, inner, outer = selection[:8]
+    selection = _selection(7, ordered=True)
+    if len(selection) >= 8:
+        ik_ctl, end_target, ankle, ball, toe, heel, inner, outer = selection[:8]
+    else:
+        # IK control, ankle, ball, toe, heel, inner, outer: find the IK end
+        # target (locator created by "IK Chain" under the IK control)
+        ik_ctl, ankle, ball, toe, heel, inner, outer = selection
+        children = cmds.listRelatives(ik_ctl, children=True, type="transform") or []
+        targets = [c for c in children if cmds.listRelatives(c, shapes=True, type="locator")]
+        targets.sort(key=lambda c: "End" not in c)
+        if not targets:
+            raise ToolError("No IK end target under %s - build it with IK Chain / IK/FK Limb first, or select "
+                            "the target as the second object" % ik_ctl)
+        end_target = targets[0]
     foot.build_reverse_foot(ik_ctl, end_target, ankle, ball, toe, transform.get_position(heel),
                             transform.get_position(inner), transform.get_position(outer),
                             name=_name_side(ankle, "foot")[0], side=naming.side_from_name(ankle))
@@ -585,7 +607,9 @@ def build_eye_rig(distance=30.0):
     from jeffy.rig import aim
 
     selection = _selection(1)
-    result = aim.build_eye_rig(selection, distance=distance)
+    head = (cmds.listRelatives(selection[0], parent=True) or [None])[0]
+    result = aim.build_eye_rig(selection, distance=distance, up_object=head,
+                               control_parent=_follow_parent(selection[0], "eyes"))
     cmds.select(result["master"].node)
 
 
@@ -598,13 +622,26 @@ def create_pose_reader(angle=60.0, axis="x"):
 
 
 @tool("Dynamic Chain")
-def create_dynamic_chain():
-    from jeffy.rig import dynamics
+def create_dynamic_chain(size=1.0):
+    """FK controls + nHair overlap on the selected (bind) chain.
+
+    A driver chain is duplicated and posed by FK controls; the selected joints
+    blend between it and the simulated chain (``dynamics`` attribute on the
+    first FK control).
+    """
+    from jeffy.joints import tools as joint_tools
+    from jeffy.rig import common, dynamics, fk
 
     chain = _chain_from_selection(3)
     name, side = _name_side(chain[0], "dynamic")
-    result = dynamics.create_dynamic_chain(chain, name=name, side=side)
-    cmds.select(result["hair_system"])
+    group = common.create_group(naming.compose(name + "DynRig", side, "group"), visible=False)
+    driver = joint_tools.duplicate_chain(chain[0], chain[-1], search="_JNT", replace="_DRV_JNT", parent=group)
+    controls = fk.build_fk_chain(driver, name=name, side=side, size=size,
+                                 parent=_follow_parent(chain[0], "dynamic"))["controls"]
+    result = dynamics.create_dynamic_chain(driver, bind_joints=chain, name=name, side=side,
+                                           attr_holder=controls[0].node, systems_parent=group)
+    cmds.select(controls[0].node)
+    return result
 
 
 @tool("Finger Controls")
@@ -620,7 +657,10 @@ def build_fingers(size=0.5):
         holder = others[0]
     chains = [(naming.parse(r)["name"] or naming.short_name(r), [naming.short_name(j) for j in dag.get_chain(r)])
               for r in roots]
-    fingers.build_fingers(chains, side=naming.side_from_name(roots[0]), attr_holder=holder, size=size)
+    if not roots:
+        raise ToolError("Select finger root joints")
+    fingers.build_fingers(chains, side=naming.side_from_name(roots[0]), attr_holder=holder, size=size,
+                          control_parent=_follow_parent(roots[0], "fingers"))
 
 
 @tool("Connector Line")

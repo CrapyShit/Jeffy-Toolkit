@@ -6,6 +6,26 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **Ribbon** button: the ribbon now follows the selected objects ("Attach to
+  selection", on by default) instead of floating on its own.
+- **IK/FK limbs** (window and auto-rig arm/leg): the IK root joint was parent
+  constrained, which blocked the IK solver from rotating it, and the FK root
+  joint had two parent constraints (limb parent + FK control) so it only
+  followed its control halfway. Both chains now follow the parent through a
+  group.
+- **Dynamic chain** button: it built a simulated copy that drove nothing. It now
+  adds FK controls and blends the selected joints between FK and the
+  simulation (`dynamics` attribute on the first FK control).
+- **Dynamic chains**: the simulated chain root was constrained, blocking the
+  spline solver. The auto-rig chain component (dynamic mode) had the same
+  double constraint as the FK root.
+- **FK chain, Spline IK, Eye Rig, Finger Controls** buttons: controls were
+  created at world and stayed behind when the rest of the rig moved. They now
+  follow the parent of the selected chain.
+- **Reverse Foot** button: the hidden IK end target no longer has to be
+  selected; it is found under the IK control.
+
 ## [1.0.0] - 2026-10-01
 
 First release.

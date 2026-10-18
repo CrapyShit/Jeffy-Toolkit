@@ -61,16 +61,17 @@ def build_ikfk_limb(
     group = common.create_group(naming.compose(name + "Rig", side, "group"), parent=systems_parent)
     fk_joints = joint_tools.duplicate_chain(joints[0], joints[-1], search="_JNT", replace="_FK_JNT")
     ik_joints = joint_tools.duplicate_chain(joints[0], joints[-1], search="_JNT", replace="_IK_JNT")
+    # The duplicated chains follow the limb parent through a group. Their
+    # roots must stay unconstrained: the IK solver has to rotate the IK root
+    # and the FK root is driven by its control (a second parent constraint
+    # would average both targets).
+    chain_parent = common.follow_group(naming.compose(name + "Follow", side, "group"), parent, parent=group) \
+        if parent else group
     for chain in (fk_joints, ik_joints):
-        chain[0] = cmds.parent(chain[0], group)[0]
+        chain[0] = cmds.parent(chain[0], chain_parent)[0]
         cmds.setAttr(chain[0] + ".visibility", 0)
     fk_joints = [naming.short_name(j) for j in fk_joints]
     ik_joints = [naming.short_name(j) for j in ik_joints]
-
-    # The duplicated chains must follow the limb parent.
-    if parent:
-        cmds.parentConstraint(parent, fk_joints[0], maintainOffset=True)
-        cmds.parentConstraint(parent, ik_joints[0], maintainOffset=True)
 
     # FK -------------------------------------------------------------------
     fk_parent_grp = common.create_group(naming.compose(name + "FK", side, "group"),
