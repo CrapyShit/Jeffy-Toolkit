@@ -118,6 +118,23 @@ class ToolError(RuntimeError):
     """Raise this for user errors (bad selection...). Shown without traceback."""
 
 
+def _rollback(chunk_name):
+    """Undo the tool's own undo chunk after a crash (never anything older).
+
+    Only undoes when the next undo step is the chunk this tool just closed,
+    so a crash before any scene change cannot undo the user's previous work.
+    """
+    try:
+        if not cmds.undoInfo(query=True, state=True):
+            return False
+        if cmds.undoInfo(query=True, undoName=True) != chunk_name:
+            return False
+        cmds.undo()
+        return True
+    except Exception:  # pragma: no cover - interactive only
+        return False
+
+
 def tool(label=None, undo=True, keep_sel=False):
     """Decorator for user facing entry points (menus, buttons, shelf).
 
@@ -145,7 +162,10 @@ def tool(label=None, undo=True, keep_sel=False):
                 message("<hl>%s</hl>: %s" % (name, error))
             except Exception as error:  # pragma: no cover - interactive only
                 LOG.error("%s failed: %s\n%s", name, error, traceback.format_exc())
-                cmds.warning("[Jeffy] %s failed: %s (see Script Editor)" % (name, error))
+                rolled_back = undo and _rollback(name)
+                note = " - the partial build was undone" if rolled_back else ""
+                cmds.warning("[Jeffy] %s failed: %s%s (see Script Editor)" % (name, error, note))
+                message("<hl>%s failed</hl>%s - see Script Editor" % (name, note), fade=False)
             return None
 
         wrapper.tool_label = name

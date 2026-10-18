@@ -7,6 +7,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+- **IK Chain, IK/FK Limb and every auto-rig template** crashed while creating
+  the pole vector line (`setAttr: No object matches name:
+  |..._CRV|..._CRVShape.overrideEnabled`). The line's shape was stored as a
+  full DAG path before the curve was reparented, so the path no longer
+  existed. Everything after that point was never built: the IK handle was not
+  constrained (the IK did not move) and the bind joints were not connected to
+  the FK/IK chains.
+- A tool that crashes now undoes its own partial build instead of leaving half
+  a rig in the scene, and says so in the viewport.
+- **Finger Controls**: controls were named `L_index0101_CTL` (the joint number
+  was repeated).
 - **Ribbon** button: the ribbon now follows the selected objects ("Attach to
   selection", on by default) instead of floating on its own.
 - **IK/FK limbs** (window and auto-rig arm/leg): the IK root joint was parent
@@ -25,6 +36,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   follow the parent of the selected chain.
 - **Reverse Foot** button: the hidden IK end target no longer has to be
   selected; it is found under the IK control.
+
+### Added
+- `tests/fakemaya.py`: a scene-aware fake `maya.cmds` (real DAG paths,
+  attributes, connections, constraints and Maya's errors) and
+  `tests/test_rig_builds.py`, which runs every rigging button and every
+  auto-rig template end to end and checks the wiring.
 
 ## [1.0.0] - 2026-10-01
 

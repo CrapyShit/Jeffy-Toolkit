@@ -9,6 +9,7 @@ They can be called from scripts or shelf buttons too::
 """
 
 import os
+import re
 
 from maya import cmds
 
@@ -655,8 +656,12 @@ def build_fingers(size=0.5):
     others = [s for s in selection if cmds.nodeType(s) != "joint"]
     if others:
         holder = others[0]
-    chains = [(naming.parse(r)["name"] or naming.short_name(r), [naming.short_name(j) for j in dag.get_chain(r)])
-              for r in roots]
+    def finger_name(root):
+        # "L_index01_JNT" -> "index" (the FK controls are numbered again)
+        name = naming.parse(root)["name"] or naming.strip_namespace(root)
+        return re.sub(r"\d+$", "", name) or name
+
+    chains = [(finger_name(r), [naming.short_name(j) for j in dag.get_chain(r)]) for r in roots]
     if not roots:
         raise ToolError("Select finger root joints")
     fingers.build_fingers(chains, side=naming.side_from_name(roots[0]), attr_holder=holder, size=size,

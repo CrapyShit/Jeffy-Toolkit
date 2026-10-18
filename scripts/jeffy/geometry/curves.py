@@ -117,6 +117,8 @@ def create_connector_line(start, end, name="connector_CRV", parent=None, templat
         cmds.connectAttr(dm + ".outputTranslate", "%s.controlPoints[%d]" % (shape, index))
     if parent:
         curve = cmds.parent(curve, parent)[0]
+        # the full DAG path of the shape changed with the reparent - query it again
+        shape = dag.get_shape(curve)
     cmds.setAttr(curve + ".inheritsTransform", 0)
     for attr in ("tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz"):
         cmds.setAttr("%s.%s" % (curve, attr), lock=True)
