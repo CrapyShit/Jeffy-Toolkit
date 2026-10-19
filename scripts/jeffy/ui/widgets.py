@@ -127,6 +127,27 @@ def value_of(widget):
     raise TypeError("Unsupported widget %r" % widget)
 
 
+def column(*widgets):
+    """Vertical container for several widgets (e.g. the content of a tab)."""
+    container = QtWidgets.QWidget()
+    layout = QtWidgets.QVBoxLayout(container)
+    layout.setContentsMargins(0, 4, 0, 0)
+    layout.setSpacing(4)
+    for widget in widgets:
+        layout.addWidget(widget)
+    layout.addStretch(1)
+    return container
+
+
+def tabs(*pages):
+    """Tab widget from ``(title, widget)`` pairs (Basic / Advanced tool variants)."""
+    widget = QtWidgets.QTabWidget()
+    widget.setDocumentMode(True)
+    for title, page in pages:
+        widget.addTab(page, title)
+    return widget
+
+
 # ---------------------------------------------------------------------------
 # Collapsible section
 # ---------------------------------------------------------------------------

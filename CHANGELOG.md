@@ -38,6 +38,33 @@ and the project uses [Semantic Versioning](https://semver.org/).
   selected; it is found under the IK control.
 
 ### Added
+- **Flexible Rig tools** (antCGi "Create a Flexible Rig" course setups), under
+  the new **Advanced** tab of each Rigging section and in a *Flexible Rig*
+  menu. They are built exactly like the course scenes, next to the existing
+  tools that behave differently:
+  - *Create Flexible Structure*: `<name>_GRP` with a master control carrying
+    `Skeleton / Geometry / Deformers / Rig_Systems` visibility switches.
+  - *Flexible IK/FK Limb*: IK, FK and scale chains, `IK_FK_Switch` on a
+    global control that follows the end joint, a reverse node for the FK
+    weights, rotate order XZY on the IK control and distance based scaleX
+    stretch (condition + divide, rest length measured on the scale chain).
+  - *Bind Helper Joints*: elbow/wrist helpers point blended between IK and FK.
+  - *Flexible Spine*: COG, hips and one direct FK control per spine joint.
+  - *Flexible Fingers*: FK finger controls in a hand group following the
+    wrist.
+  - *Flexible Ribbon*: 9 follicle joints on a surface skinned to 5 control
+    joints (aimed upper/lower controls, extra knots at the elbow), a sine and
+    twist blendshape layer driven from the limb control (`SineBlend`,
+    `SineAmplitude`, `SineWavelength`, `SineOrientation`, `SineOffset`,
+    `TwistBlend`, `TwistOffset`), `Toon_Controls` and an optional elbow/wrist
+    *Crease Fix* (single chain IK fix joints added to the skin at zero weight).
+  - *Flexible Reverse Foot*: heel/inner/outer/end/ball/ankle pivots and the
+    course roll and bank networks built from utility nodes only (`Roll`,
+    `Bank`, `HeelTwist`, `ToeTwist`, `ToeTap`, plus `ToeFlex`, `RollBack`,
+    `RollEnd`, `BankAmount`, `ToeStraightAngle` settings).
+  - 10 *Flexible Rig* control shapes in the shape library.
+- `tests/test_flexible_rig.py` builds each of them and checks the wiring and
+  the roll, bank and stretch values against the course.
 - `tests/fakemaya.py`: a scene-aware fake `maya.cmds` (real DAG paths,
   attributes, connections, constraints and Maya's errors) and
   `tests/test_rig_builds.py`, which runs every rigging button and every

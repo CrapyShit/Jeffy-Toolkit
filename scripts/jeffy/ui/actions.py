@@ -689,6 +689,162 @@ def build_expression(text):
 
 
 # ===========================================================================
+# Flexible rig (antCGi course setups) - the "Advanced" tabs
+# ===========================================================================
+def _flex_parents():
+    """Groups of an existing flexible structure (or Nones)."""
+    from jeffy.rig.flexible import structure
+
+    found = structure.find()
+    if not found:
+        return {"controls": None, "systems": None, "deformers": None, "switch": None}
+    return {"controls": found["controls"], "systems": found["systems"], "deformers": found["deformers"],
+            "switch": found["deformers_switch"]}
+
+
+def _joint_selection(minimum=1):
+    selection = cmds.ls(selection=True, type="joint") or []
+    if len(selection) < minimum:
+        raise ToolError("Select at least %d joint(s)" % minimum)
+    return [naming.short_name(j) for j in selection]
+
+
+@tool("Flexible Structure")
+def create_flexible_structure(name="Robot", size=10.0):
+    from jeffy.rig.flexible import structure
+
+    result = structure.create(name, size)
+    cmds.select(result["master"].node)
+    return result
+
+
+@tool("Flexible IK/FK Limb")
+def build_flexible_limb(stretch=True, pole_distance=0.0, size=1.0, ik_orient="joint"):
+    from jeffy.rig.flexible import limb
+
+    chain = _chain_from_selection(3)
+    name, side = _name_side(chain[0])
+    parents = _flex_parents()
+    result = limb.build_limb(chain, name=name, side=side, control_parent=parents["controls"],
+                             systems_parent=parents["systems"], size=size, stretch=stretch,
+                             pole_distance=pole_distance, ik_orient=ik_orient)
+    cmds.select(result["global"].node)
+    return result
+
+
+@tool("Bind Helper Joints")
+def add_flexible_bind_helpers():
+    from jeffy.rig.flexible import limb
+
+    selection = _selection(1)
+    owner = limb.find_limb(selection[0])
+    if not owner:
+        for candidate in cmds.ls("*.jeffyFlex_bind", objectsOnly=True) or []:
+            if naming.short_name(selection[0]) in limb.common.fetch(candidate, "bind"):
+                owner = candidate
+                break
+    if not owner:
+        raise ToolError("Select the global (switch) control or a bind joint of a Flexible IK/FK Limb")
+    helpers = limb.add_bind_helpers(owner)
+    cmds.select(helpers)
+    return helpers
+
+
+@tool("Flexible Spine")
+def build_flexible_spine(size=1.0, pelvis_first=True):
+    from jeffy.core import dag
+    from jeffy.rig.flexible import spine
+
+    selection = _joint_selection(2 if pelvis_first else 1)
+    pelvis = selection.pop(0) if pelvis_first else None
+    if len(selection) >= 2:
+        chain = [naming.short_name(j) for j in dag.get_chain(selection[0], selection[-1])]
+    else:
+        chain = [naming.short_name(j) for j in dag.get_chain(selection[0])]
+    result = spine.build_direct_spine(chain, pelvis=pelvis, control_parent=_flex_parents()["controls"],
+                                      size=size)
+    cmds.select(result["cog"].node)
+    return result
+
+
+@tool("Flexible Fingers")
+def build_flexible_fingers(size=0.3, include_tips=True):
+    from jeffy.rig.flexible import fingers
+
+    roots = _joint_selection(1)
+    result = fingers.build_fingers(roots, control_parent=_flex_parents()["controls"], size=size,
+                                   include_tips=include_tips)
+    cmds.select(result["group"])
+    return result
+
+
+def _limb_owning(joint):
+    from jeffy.rig.flexible import common
+
+    for candidate in cmds.ls("*.jeffyFlex_bind", objectsOnly=True) or []:
+        if joint in common.fetch(candidate, "bind"):
+            return candidate
+    return None
+
+
+@tool("Flexible Ribbon")
+def build_flexible_ribbon(joints=9, size=1.0, deformers=True, crease_fix=True, end_follow="point"):
+    from jeffy.core import dag
+    from jeffy.rig.flexible import ribbon
+
+    selection = _selection(1, ordered=True)
+    picked = [naming.short_name(s) for s in selection if cmds.nodeType(s) == "joint"]
+    others = [naming.short_name(s) for s in selection if cmds.nodeType(s) != "joint"]
+    if len(picked) >= 3:
+        start, middle, end = picked[:3]
+    else:
+        chain = [naming.short_name(j) for j in dag.get_chain(picked[0], picked[1] if len(picked) > 1 else None)]
+        if len(chain) < 3:
+            raise ToolError("Select three joints (start, middle, end) or a chain of at least three")
+        start, middle, end = chain[0], chain[len(chain) // 2], chain[-1]
+    holder = others[0] if others else _limb_owning(start)
+    name, side = _name_side(start, "ribbon")
+    parents = _flex_parents()
+    result = ribbon.build_ribbon_limb(start, middle, end, name=name, side=side, holder=holder,
+                                      systems_parent=parents["deformers"], size=size, joints=joints,
+                                      deformers=deformers, crease_fix=crease_fix, end_follow=end_follow,
+                                      visibility_plug=parents["switch"])
+    cmds.select(result["holder"])
+    decorators.message("Ribbon built - skin the mesh to its follicle joints; Toon_Controls shows the controls")
+    return result
+
+
+@tool("Crease Fix")
+def add_flexible_crease_fix():
+    from jeffy.rig.flexible import ribbon
+
+    owner = ribbon.find_ribbon(_selection(1)[0])
+    if not owner:
+        raise ToolError("Select a Flexible Ribbon (its group, holder or one of its controls)")
+    try:
+        result = ribbon.add_crease_fix(owner)
+    except ValueError as error:
+        raise ToolError(str(error)) from None
+    cmds.select([result["elbow_fix"], result["wrist_fix"]])
+    decorators.message("Fix joints added with zero weight - paint them around the crease")
+    return result
+
+
+@tool("Flexible Reverse Foot")
+def build_flexible_foot():
+    from jeffy.core import transform
+    from jeffy.rig.flexible import foot
+
+    selection = _selection(7, ordered=True)
+    ik_ctl, ankle, ball, toe, heel, inner, outer = selection[:7]
+    result = foot.build_reverse_foot(ik_ctl, ankle, ball, toe, transform.get_position(heel),
+                                     transform.get_position(inner), transform.get_position(outer),
+                                     name=_name_side(ankle, "foot")[0] + "Foot", side=naming.side_from_name(ankle))
+    cmds.select(ik_ctl)
+    return result
+
+
+# ===========================================================================
 # Skinning / deformers
 # ===========================================================================
 def _meshes():

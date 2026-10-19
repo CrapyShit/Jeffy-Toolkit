@@ -77,6 +77,16 @@ MENU = [
         ("Pose Reader", _act("create_pose_reader")),
         ("Rig Structure", _act("create_rig_structure")),
     ]),
+    ("Flexible Rig", [
+        ("Structure + Master", _act("create_flexible_structure")),
+        ("IK/FK Limb (root ... end joint)", _act("build_flexible_limb")),
+        ("Bind Helper Joints (limb control)", _act("add_flexible_bind_helpers")),
+        ("Direct Spine", _act("build_flexible_spine")),
+        ("FK Fingers (finger roots)", _act("build_flexible_fingers")),
+        ("Ribbon (start, middle, end)", _act("build_flexible_ribbon")),
+        ("Ribbon Crease Fix", _act("add_flexible_crease_fix")),
+        ("Reverse Foot (IK ctl, ankle, ball, toe, heel, in, out)", _act("build_flexible_foot")),
+    ]),
     ("Skin", [
         ("Bind Skin", _act("bind_skin")),
         ("Export Weights...", _act("export_skin_weights")),

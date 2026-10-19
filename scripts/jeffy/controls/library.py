@@ -490,6 +490,18 @@ CATEGORIES = {
 }
 
 
+def _add_flexible_shapes():
+    """Control shapes of the antCGi Flexible Rig course (``flex_*``)."""
+    from jeffy.controls import flexible_shapes
+
+    for name, curves in flexible_shapes.SHAPES.items():
+        SHAPES[name] = [dict(curve, points=[tuple(p) for p in curve["points"]]) for curve in curves]
+    CATEGORIES["Flexible Rig"] = sorted(flexible_shapes.SHAPES)
+
+
+_add_flexible_shapes()
+
+
 # ---------------------------------------------------------------------------
 # Transform helpers
 # ---------------------------------------------------------------------------

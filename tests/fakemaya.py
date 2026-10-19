@@ -344,13 +344,22 @@ class FakeCmds(object):
 
     def duplicate(self, node, parentOnly=False, name=None, returnRootsOnly=False, **_kwargs):
         source = self._node(node, "duplicate")
-        copy = self._create(source.type, name or source.name, source.parent)
-        copy.values = dict(source.values)
-        copy.locked = set(source.locked)
-        for attr, info in source.user_attrs.items():
-            copy.user_attrs[attr] = dict(info)
-        if not parentOnly:
-            raise NotImplementedError("duplicate without parentOnly")
+
+        def copy_node(src, parent, new_name=None):
+            copy = self._create(src.type, new_name or src.name, parent)
+            copy.values = dict(src.values)
+            copy.locked = set(src.locked)
+            copy.data = dict(src.data)
+            for attr, info in src.user_attrs.items():
+                copy.user_attrs[attr] = dict(info)
+            if not parentOnly:
+                for child in list(src.children):
+                    if child.type in CONSTRAINT_TYPES or child.values.get("intermediateObject"):
+                        continue
+                    copy_node(child, copy)
+            return copy
+
+        copy = copy_node(source, source.parent, name)
         return [self._display(copy)]
 
     def delete(self, *nodes):
@@ -805,7 +814,7 @@ class FakeCmds(object):
         return position, euler, scale
 
     def xform(self, node, query=False, worldSpace=False, objectSpace=False, matrix=None, translation=None,
-              rotation=None, rotatePivot=False, scale=None, relative=False, **_kwargs):
+              rotation=None, rotatePivot=False, scale=None, relative=False, pivots=None, **_kwargs):
         if "." in node:
             raise NotImplementedError("xform on components")
         target = self._node(node, "xform")
@@ -818,6 +827,12 @@ class FakeCmds(object):
             if rotation:
                 return list(self._decompose(target, world)[1])
             raise NotImplementedError("xform query flags")
+        if pivots is not None:
+            space = target.world_matrix() if worldSpace else mathlib.identity()
+            local = mathlib.transform_point(pivots, mathlib.inverse(space))
+            for attr in ("rotatePivot", "scalePivot"):
+                for axis, value in zip("XYZ", local):
+                    target.values[attr + axis] = value
         if matrix is not None:
             if worldSpace:
                 self._set_world(target, list(matrix))
@@ -947,7 +962,7 @@ class FakeCmds(object):
     def poleVectorConstraint(self, *args, **kwargs):
         names = [a for a in args]
         handle = self._node(names[-1], "poleVectorConstraint")
-        if handle.type != "ikHandle":
+        if not (kwargs.get("query") or kwargs.get("q")) and handle.type != "ikHandle":
             raise MayaError("poleVectorConstraint: %s is not an ikHandle" % names[-1])
         return self._constraint("poleVectorConstraint", args, kwargs, ("poleVector",))
 
@@ -1061,6 +1076,56 @@ class FakeCmds(object):
         node.data["members"] = names
         return node.name
 
+    def insertKnotSurface(self, surface, **kwargs):
+        node = self._deformed_shape(surface, "insertKnotSurface")
+        node.data.setdefault("inserted", []).append(kwargs.get("parameter"))
+        return [self._display(node)]
+
+    def _deformed_shape(self, name, command):
+        node = self._node(name, command)
+        if node.is_transform:
+            shapes = [c for c in node.children if c.is_shape]
+            if not shapes:
+                raise MayaError("%s: %s has no shape" % (command, name))
+            node = shapes[0]
+        return node
+
+    def blendShape(self, *args, **kwargs):
+        names = []
+        for item in args:
+            names.extend([item] if isinstance(item, str) else list(item))
+        if kwargs.get("query") or kwargs.get("q") or kwargs.get("edit") or kwargs.get("e"):
+            raise NotImplementedError("blendShape query/edit")
+        base = self._deformed_shape(names[-1], "blendShape")
+        node = self._create("blendShape", kwargs.get("name") or kwargs.get("n") or "blendShape1")
+        node.data.update(base=base.id, front=kwargs.get("frontOfChain", kwargs.get("foc", False)))
+        for index, target in enumerate(names[:-1]):
+            shape = self._deformed_shape(target, "blendShape")
+            self.connections[(node.id, "inputTarget[0].inputTargetGroup[%d].inputTargetItem[6000]."
+                                       "inputGeomTarget" % index)] = (shape.id, "worldSpace[0]")
+            node.values["weight[%d]" % index] = 0.0
+        base.data.setdefault("deformers", []).append(node.id)
+        return [node.name]
+
+    def nonLinear(self, *args, **kwargs):
+        names = []
+        for item in args:
+            names.extend([item] if isinstance(item, str) else list(item))
+        kind = kwargs.get("type") or kwargs.get("typ")
+        if kind not in ("sine", "twist", "bend", "squash", "flare", "wave"):
+            raise MayaError("nonLinear: unknown type %r" % kind)
+        shapes = [self._deformed_shape(n, "nonLinear") for n in names]
+        name = kwargs.get("name") or kwargs.get("n") or kind + "1"
+        deformer = self._create("nonLinear", name)
+        deformer.data["kind"] = kind
+        handle = self._create("transform", deformer.name + "Handle")
+        self._create("deform" + kind.title(), handle.name + "Shape", handle)
+        self.connections[(deformer.id, "matrix")] = (handle.id, "worldMatrix[0]")
+        deformer.values.update({"lowBound": -1.0, "highBound": 1.0, "envelope": 1.0})
+        for shape in shapes:
+            shape.data.setdefault("deformers", []).append(deformer.id)
+        return [deformer.name, self._display(handle)]
+
     def listHistory(self, node, pruneDagObjects=False, **kwargs):
         start = self._node(node, "listHistory")
         seen, queue = [start], [start]
@@ -1083,13 +1148,29 @@ class FakeCmds(object):
         names = []
         for item in args:
             names.extend([item] if isinstance(item, str) else list(item))
-        if kwargs.get("query") or kwargs.get("q") or kwargs.get("edit") or kwargs.get("e"):
-            raise NotImplementedError("skinCluster query/edit")
+        if kwargs.get("edit") or kwargs.get("e"):
+            skin = self._node(names[0], "skinCluster")
+            influence = kwargs.get("addInfluence") or kwargs.get("ai")
+            if influence is None:
+                raise NotImplementedError("skinCluster edit flags %s" % sorted(kwargs))
+            joint = self._node(influence, "skinCluster")
+            if joint.id in skin.data["influences"]:
+                raise MayaError("skinCluster: %s is already an influence" % influence)
+            if skin.values.get("envelope", 1.0) != 0 and not kwargs.get("lockWeights", kwargs.get("lw")):
+                skin.data.setdefault("weights_changed", True)
+            skin.data["influences"].append(joint.id)
+            index = len(skin.data["influences"]) - 1
+            self.connections[(skin.id, "matrix[%d]" % index)] = (joint.id, "worldMatrix[0]")
+            return None
+        if kwargs.get("query") or kwargs.get("q"):
+            raise NotImplementedError("skinCluster query")
         geometry = self._node(names[-1], "skinCluster")
         influences = [self._node(n, "skinCluster") for n in names[:-1]]
         node = self._create("skinCluster", kwargs.get("name") or kwargs.get("n") or "skinCluster1")
         node.data["influences"] = [i.id for i in influences]
         node.data["geometry"] = geometry.id
+        node.data["maximumInfluences"] = kwargs.get("maximumInfluences", kwargs.get("mi"))
+        node.values["envelope"] = 1.0
         for i, influence in enumerate(influences):
             self.connections[(node.id, "matrix[%d]" % i)] = (influence.id, "worldMatrix[0]")
         return [node.name]
@@ -1173,7 +1254,10 @@ def _pma(cmds, node, attr, get):
 
 
 def _md(cmds, node, attr, get):
-    a, b = get("input1X"), get("input2X", 1.0)
+    axis = attr[-1] if attr[-1] in "XYZ" else "X"
+    stored = node.values.get("input2")
+    default2 = float(stored.split()["XYZ".index(axis)]) if isinstance(stored, str) else 1.0
+    a, b = get("input1" + axis), get("input2" + axis, default2)
     op = int(node.values.get("operation", 1))
     return {1: lambda: a * b, 2: lambda: a / b, 3: lambda: a ** b}.get(op, lambda: a)()
 
@@ -1184,7 +1268,9 @@ def _condition(cmds, node, attr, get):
     ops = [operator.eq, operator.ne, operator.gt, operator.ge, operator.lt, operator.le]
     first, second = get("firstTerm"), get("secondTerm")
     result = ops[int(node.values.get("operation", 0))](first, second)
-    return get("colorIfTrueR") if result else get("colorIfFalseR")
+    channel = attr[-1] if attr[-1] in "RGB" else "R"
+    return get("colorIfTrue" + channel, 0.0) if result else get("colorIfFalse" + channel, 1.0 if channel != "R"
+                                                                     else 1.0)
 
 
 def _matrix_input(cmds, node, attr):

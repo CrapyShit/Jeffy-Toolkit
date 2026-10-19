@@ -11,9 +11,18 @@ class RiggingPage(w.Page):
         structure = self.section("Rig Structure", expanded=False)
         self.rig_name = w.line_edit("character")
         self.rig_size = w.spin(10.0, 0.01, 10000.0, 2, 1.0)
-        structure.add(w.row(("Name", self.rig_name), ("Size", self.rig_size),
-                            w.button("Create Structure", lambda: actions.create_rig_structure(
-                                self.rig_name.text() or "character", self.rig_size.value()))))
+        basic = w.row(("Name", self.rig_name), ("Size", self.rig_size),
+                      w.button("Create Structure", lambda: actions.create_rig_structure(
+                          self.rig_name.text() or "character", self.rig_size.value())))
+        self.flex_name = w.line_edit("Robot")
+        advanced = w.column(
+            w.label("Flexible Rig master: controls + systems under the master; skeleton, models and deformers "
+                    "outside it. VIZ switches: Skeleton, Geometry, Deformers, Rig_Systems. Flexible tools put "
+                    "their parts in these groups."),
+            w.row(("Name", self.flex_name), w.button("Create Flexible Structure", lambda: actions.
+                                                     create_flexible_structure(self.flex_name.text() or "Robot",
+                                                                               self.rig_size.value()))))
+        structure.add(w.tabs(("Basic", basic), ("Advanced", advanced)))
 
         common = self.section("Chain Options")
         self.size_box = w.spin(1.0, 0.001, 10000.0, 3, 0.25, "Control size")
@@ -26,11 +35,12 @@ class RiggingPage(w.Page):
 
         limbs = self.section("FK / IK")
         self.fk_connect = w.combo(["constraint", "matrix", "none"], "constraint")
-        limbs.add(w.row(("FK drive", self.fk_connect),
-                        w.button("FK Chain", lambda: actions.build_fk(size=self.size_box.value(),
-                                                                      connect=self.fk_connect.currentText()),
-                                 "Select a chain (root, or root + end)")))
-        limbs.add(w.grid([
+        limbs_basic = w.column(
+            w.row(("FK drive", self.fk_connect),
+                  w.button("FK Chain", lambda: actions.build_fk(size=self.size_box.value(),
+                                                                connect=self.fk_connect.currentText()),
+                           "Select a chain (root, or root + end)")),
+            w.grid([
             w.button("IK Chain", lambda: actions.build_ik(self.stretch.isChecked(), self.soft.isChecked(),
                                                           self.pin.isChecked(), self.pole.value(),
                                                           self.size_box.value()),
@@ -41,7 +51,29 @@ class RiggingPage(w.Page):
                      "Select start and end joints of a 3 joint limb"),
             w.button("IK/FK Match + Switch", lambda: actions.ikfk_switch(False),
                      "Snap the selected limb to the other mode"),
-        ], 3))
+            ], 3))
+        self.flex_stretch = w.check("Stretch (scaleX)", True)
+        self.flex_pole = w.spin(0.0, 0.0, 100.0, 2, 0.1, "0 = pole control on the middle joint (course)")
+        self.flex_ik_orient = w.combo(["joint", "world"], "joint", "IK control orientation")
+        self.flex_pelvis = w.check("Pelvis selected first", True)
+        limbs_advanced = w.column(
+            w.label("Flexible Rig (antCGi) setups: IK_FK_Switch + reverse node on a global control, "
+                    "condition/divide stretch on scaleX, chains following the root control."),
+            w.row(self.flex_stretch, ("Pole dist.", self.flex_pole), ("IK orient", self.flex_ik_orient)),
+            w.grid([
+                w.button("Flexible IK/FK Limb", lambda: actions.build_flexible_limb(
+                    self.flex_stretch.isChecked(), self.flex_pole.value(), self.size_box.value(),
+                    self.flex_ik_orient.currentText()),
+                    "Select the start and end bind joints (3 or more: ball/toe joints are blended too)"),
+                w.button("Bind Helper Joints", actions.add_flexible_bind_helpers,
+                         "Select the limb's global control: adds non-rotating elbow/wrist bind joints "
+                         "following IK/FK (clean stretch weighting)"),
+            ], 2),
+            w.row(self.flex_pelvis, w.button("Flexible Spine (COG / hips)", lambda: actions.build_flexible_spine(
+                self.size_box.value(), self.flex_pelvis.isChecked()),
+                "Select the pelvis joint, then the first and last spine joints: one control per joint, "
+                "COG drives the first, hips drive the pelvis")))
+        limbs.add(w.tabs(("Basic", limbs_basic), ("Advanced", limbs_advanced)))
 
         spline = self.section("Spline IK / Ribbon", expanded=False)
         self.spline_controls = w.spin(3, 2, 50, 0, 1)
@@ -54,13 +86,34 @@ class RiggingPage(w.Page):
         self.ribbon_controls = w.spin(3, 2, 50, 0, 1)
         self.ribbon_name = w.line_edit("ribbon")
         self.ribbon_attach = w.check("Attach to selection", True)
-        spline.add(w.row(("Joints", self.ribbon_joints), ("Controls", self.ribbon_controls),
-                         ("Name", self.ribbon_name), self.ribbon_attach))
-        spline.add(w.button("Ribbon Between Selection", lambda: actions.build_ribbon(
-            self.ribbon_joints.value(), self.ribbon_controls.value(), None, self.ribbon_name.text() or "ribbon",
-            self.ribbon_attach.isChecked()),
-            "Select two or more objects in order. With 'Attach to selection', the ribbon follows the first "
-            "and last objects. Skin your mesh to the ribbon's own joints."))
+        ribbon_basic = w.column(
+            w.row(("Joints", self.ribbon_joints), ("Controls", self.ribbon_controls), ("Name", self.ribbon_name),
+                  self.ribbon_attach),
+            w.button("Ribbon Between Selection", lambda: actions.build_ribbon(
+                self.ribbon_joints.value(), self.ribbon_controls.value(), None,
+                self.ribbon_name.text() or "ribbon", self.ribbon_attach.isChecked()),
+                "Select two or more objects in order. With 'Attach to selection', the ribbon follows the first "
+                "and last objects. Skin your mesh to the ribbon's own joints."))
+        self.flex_ribbon_joints = w.spin(9, 3, 101, 0, 2)
+        self.flex_ribbon_deform = w.check("Sine / twist", True)
+        self.flex_ribbon_crease = w.check("Crease fix", True)
+        self.flex_ribbon_end = w.combo(["point", "parent"], "point", "End follows the end joint by point "
+                                                                     "(arms) or parent (legs)")
+        ribbon_advanced = w.column(
+            w.label("Flexible Rig (antCGi) ribbon: 5 control joints (root/upper/middle/lower/end) with aim "
+                    "setup, sine/twist blendshape layer and Toon_Controls on the holder, crease isoparms."),
+            w.row(("Joints", self.flex_ribbon_joints), self.flex_ribbon_deform, self.flex_ribbon_crease,
+                  ("End", self.flex_ribbon_end)),
+            w.grid([
+                w.button("Flexible Ribbon", lambda: actions.build_flexible_ribbon(
+                    self.flex_ribbon_joints.value(), self.size_box.value(), self.flex_ribbon_deform.isChecked(),
+                    self.flex_ribbon_crease.isChecked(), self.flex_ribbon_end.currentText()),
+                    "Select start, middle and end joints (and optionally the control receiving the attributes; "
+                    "a Flexible Limb's global control is used automatically)"),
+                w.button("Add Crease Fix", actions.add_flexible_crease_fix,
+                         "Select a Flexible Ribbon: elbow/wrist fix joints (single chain IK) added to its skin"),
+            ], 2))
+        spline.add(w.tabs(("Basic", ribbon_basic), ("Advanced", ribbon_advanced)))
 
         twist = self.section("Twist / Foot / Fingers", expanded=False)
         self.twist_count = w.spin(3, 1, 20, 0, 1)
@@ -70,12 +123,23 @@ class RiggingPage(w.Page):
                         w.button("Create Twist", lambda: actions.build_twist(self.twist_count.value(),
                                                                              self.twist_mode.currentText()),
                                  "Select start and end joints")))
-        twist.add(w.button("Reverse Foot", actions.build_reverse_foot,
-                           "Select in order: IK control, ankle, ball, toe (IK joints), heel locator, inner "
-                           "locator, outer locator. The IK end target is found automatically (or select it "
-                           "second)."))
-        twist.add(w.button("Finger Controls", lambda: actions.build_fingers(self.size_box.value()),
-                           "Select finger root joints (and optionally the control receiving the attributes)"))
+        foot_basic = w.column(
+            w.button("Reverse Foot", actions.build_reverse_foot,
+                     "Select in order: IK control, ankle, ball, toe (IK joints), heel locator, inner "
+                     "locator, outer locator. The IK end target is found automatically (or select it second)."),
+            w.button("Finger Controls", lambda: actions.build_fingers(self.size_box.value()),
+                     "Select finger root joints (and optionally the control receiving the attributes)"))
+        self.flex_tips = w.check("Tip controls", True)
+        foot_advanced = w.column(
+            w.label("Flexible Rig (antCGi): node based foot (Roll, Bank, HeelTwist, ToeTwist, ToeTap + "
+                    "ToeFlex, RollBack, RollEnd, BankAmount, ToeStraightAngle) and plain FK fingers following "
+                    "the wrist."),
+            w.button("Flexible Reverse Foot", actions.build_flexible_foot,
+                     "Select in order: IK control, ankle, ball, toe (IK joints), heel, inner and outer locators. "
+                     "Everything under the IK control moves under the ankle pivot. Foot must point down +Z."),
+            w.row(self.flex_tips, w.button("Flexible Fingers", lambda: actions.build_flexible_fingers(
+                self.size_box.value() * 0.3, self.flex_tips.isChecked()), "Select finger root joints")))
+        twist.add(w.tabs(("Basic", foot_basic), ("Advanced", foot_advanced)))
 
         spaces = self.section("Spaces / Constraints", expanded=False)
         self.space_mode = w.combo(["parent", "orient", "point"], "parent")
