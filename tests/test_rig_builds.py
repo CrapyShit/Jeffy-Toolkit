@@ -345,6 +345,34 @@ def test_eye_rig_and_fingers(cmds):
     assert cmds.ls("L_index01_CTL") and cmds.ls("L_middle03_CTL"), cmds.ls("*_CTL")
 
 
+@pytest.mark.parametrize("with_holder", [False, True])
+def test_finger_ikfk(cmds, with_holder):
+    from jeffy.ui import actions
+
+    hand = cmds.createNode("joint", name="L_hand_JNT")
+    holder = cmds.createNode("transform", name="L_hand_CTL") if with_holder else None
+    chains = []
+    for finger in ("index", "middle"):
+        joints = make_chain(cmds, 4, name=finger, step=1.0, parent=hand)
+        joints = [cmds.rename(j, j.replace("C_", "L_")) for j in joints]
+        cmds.setAttr(joints[1] + ".jointOrient", 0.0, 0.0, -10.0)
+        chains.append(joints)
+    cmds.select([c[0] for c in chains] + ([holder] if holder else []))
+    run(actions.build_finger_ikfk)
+
+    assert len(cmds.ls(type="ikHandle")) == 2
+    for joints in chains:
+        for bind in joints:
+            targets = constraint_targets(cmds, bind)
+            assert len(targets) == 2 and "_FK" in targets[0] and "_IK" in targets[1], targets
+        finger = "index" if "index" in joints[0] else "middle"
+        ik_ctl = [n for n in cmds.ls("L_%sIK*_CTL" % finger)]
+        assert ik_ctl, cmds.ls("*_CTL")
+        assert cmds.attributeQuery("space", node=ik_ctl[0], exists=True)
+        if holder:
+            assert cmds.attributeQuery(finger + "IkFk", node=holder, exists=True)
+
+
 def test_dynamic_chain_drives_selection(cmds):
     from jeffy.ui import actions
 

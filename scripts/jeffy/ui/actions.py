@@ -699,6 +699,29 @@ def build_fingers(size=0.5):
                           control_parent=_follow_parent(roots[0], "fingers"))
 
 
+@tool("IK/FK Fingers")
+def build_finger_ikfk(size=0.5, stretch=False):
+    size = _scaled(size)
+    from jeffy.core import dag
+    from jeffy.rig import fingers
+
+    selection = _selection(1, ordered=True)
+    roots = [s for s in selection if cmds.nodeType(s) == "joint"]
+    others = [s for s in selection if cmds.nodeType(s) != "joint"]
+    if not roots:
+        raise ToolError("Select finger root joints (first joint that bends, not the metacarpal)")
+
+    def finger_name(root):
+        name = naming.parse(root)["name"] or naming.strip_namespace(root)
+        return re.sub(r"\d+$", "", name) or name
+
+    chains = [(finger_name(r), [naming.short_name(j) for j in dag.get_chain(r)]) for r in roots]
+    result = fingers.build_finger_ikfk(chains, side=naming.side_from_name(roots[0]),
+                                       attr_holder=others[0] if others else None, size=size, stretch=stretch,
+                                       control_parent=_follow_parent(roots[0], "fingers"))
+    cmds.select([r["ik"]["ik_control"].node for r in result.values()])
+
+
 @tool("Connector Line")
 def connector_line():
     from jeffy.geometry import curves

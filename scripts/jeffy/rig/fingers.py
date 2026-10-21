@@ -86,3 +86,61 @@ def build_fingers(
             spread = nodes.multiply(attrs["spread"], factor)
             cmds.connectAttr(spread, "%s.rotate%s" % (ctls[first].last_offset, spread_axis.upper()), force=True)
     return {"controls": controls, "attributes": attrs}
+
+
+def build_finger_ikfk(
+    finger_chains,
+    side=None,
+    hand=None,
+    control_parent=None,
+    systems_parent=None,
+    attr_holder=None,
+    size=0.3,
+    stretch=False,
+    pole_distance=0.5,
+    default_mode=0.0,
+):
+    """IK/FK fingers for contact (hands on a table, a wall, a prop...).
+
+    Every finger gets an FK chain, an IK chain solved to the finger tip and an
+    ``ikFk`` switch (0 FK, 1 IK) on a small gear control at the tip. The IK
+    control has a ``space`` switch: ``hand`` (follows the hand, default) or
+    ``world`` (stays where it is, so the tip sticks to the contact point while
+    the hand moves).
+
+    :param finger_chains: ``{"index": [joints...]}`` or ``(name, joints)``
+        pairs. Each chain goes from the first joint the IK should bend (the
+        proximal phalanx, not the metacarpal) to the tip end joint.
+    :param hand: node the fingers follow (default: parent of each finger root)
+    :param attr_holder: optional control (e.g. the hand) receiving one
+        ``<finger>IkFk`` attribute per finger that drives that finger's switch
+    :returns: ``{finger: ikfk result}``
+    """
+    from jeffy.rig import ikfk, space_switch
+
+    if isinstance(finger_chains, dict):
+        finger_chains = list(finger_chains.items())
+    world = None
+    results = {}
+    if attr_holder:
+        attributes.add_separator(attr_holder, "fingersIkFk")
+    for finger, joints in finger_chains:
+        joints = [naming.short_name(j) for j in joints]
+        if len(joints) < 3:
+            raise ValueError("%s: an IK finger needs at least 3 joints (with the tip end joint)" % finger)
+        parent = hand or (cmds.listRelatives(joints[0], parent=True) or [None])[0]
+        result = ikfk.build_ikfk_limb(joints, name=finger, side=side, parent=parent, control_parent=control_parent,
+                                      systems_parent=systems_parent, size=size, ik_shape="sphere",
+                                      stretch=stretch, soft=False, pin=False, pole_distance=pole_distance,
+                                      orient_ik_control="joint", default_mode=default_mode, fk_skip_last=True)
+        ik_ctl = result["ik"]["ik_control"]
+        if parent:
+            if world is None:
+                world = common.create_group(naming.compose("fingersWorld", side, "group"), parent=systems_parent)
+            space_switch.create(ik_ctl.node, [("hand", parent), ("world", world)])
+        if attr_holder:
+            plug = attributes.add_attr(attr_holder, finger + "IkFk", "float", default=default_mode, minimum=0.0,
+                                       maximum=1.0)
+            cmds.connectAttr(plug, result["switch"], force=True)
+        results[finger] = result
+    return results

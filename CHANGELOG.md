@@ -18,6 +18,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   - `ikBlend` on the last IK control blends the chain between IK and pure FK.
     With *Per-joint IK/FK* every joint also gets its own `ik01`, `ik02`...
     switch; a joint on FK keeps the joints below it attached (no gaps).
+- **IK/FK Fingers** (Rigging tab > Twist / Foot / Fingers, menu *Rigging*, or
+  `jeffy.rig.fingers.build_finger_ikfk`) for contact poses (hands on a table,
+  a wall, a prop). Each finger gets FK controls, an IK solved to the tip with
+  a pole vector, and an `ikFk` switch. The IK control's `space` switch picks
+  `hand` (follows the hand) or `world` (the tip stays on the contact point
+  while the hand moves). Select the hand control last to also get one
+  `<finger>IkFk` attribute per finger on it.
 - **Rig scale**: a global multiplier for the size of every control the
   toolkit builds, so the default shapes fit any character size in the scene.
   Set it in the *Rig scale* field at the top of the window (every tab uses it)
