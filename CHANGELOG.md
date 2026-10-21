@@ -79,6 +79,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   still take `size` as given.
 
 ### Fixed
+- **Reverse Foot** did not move a leg IK handle made by hand (it only knew
+  the `...End` locator of the toolkit's IK tools). It now finds the IK
+  handle that follows the IK control - parented under it, point / parent
+  constrained to it, or driven through connections (e.g. a decomposeMatrix)
+  - and moves it under the reverse ankle. Its pole vector constraint stays.
+  An ankle orient constrained to the IK control is released so the foot
+  rotates it. Selecting the handle by hand also works.
 - **Reverse Foot**: the ankle was driven twice, by the leg IK's orient
   constraint and by an extra ankle -> ball IK handle. The handle is now only
   made when the ankle has no orient constraint.

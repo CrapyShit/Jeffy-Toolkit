@@ -157,11 +157,90 @@ def _distance(a, b):
 
 
 def find_end_target(ik_control):
-    """The locator the leg IK follows (created under the IK control by the IK tools)."""
+    """The ``...End`` locator the toolkit's IK tools create under the IK control."""
     children = cmds.listRelatives(ik_control, children=True, type="transform") or []
-    targets = [c for c in children if cmds.listRelatives(c, shapes=True, type="locator")]
-    targets.sort(key=lambda c: "End" not in c)
+    targets = [c for c in children if "End" in c and cmds.listRelatives(c, shapes=True, type="locator")]
     return targets[0] if targets else None
+
+
+_FOLLOW_CONSTRAINTS = ("pointConstraint", "parentConstraint", "orientConstraint")
+
+
+def _upstream_nodes(plugs, depth=4):
+    """Nodes feeding ``plugs`` through up to ``depth`` connections."""
+    found = []
+    frontier = list(plugs)
+    for _level in range(depth):
+        upstream = []
+        for plug in frontier:
+            for node in cmds.listConnections(plug, source=True, destination=False) or []:
+                node = naming.short_name(node)
+                if node not in found:
+                    found.append(node)
+                    upstream.append(node)
+        frontier = upstream
+    return found
+
+
+def _follows(handle, control):
+    """True when ``handle`` is under ``control``, constrained to it or driven by it."""
+    control = naming.short_name(control)
+    long_handle = (cmds.ls(handle, long=True) or [handle])[0]
+    long_control = (cmds.ls(control, long=True) or [control])[0]
+    if long_handle.startswith(long_control + "|"):
+        return True
+    for kind in _FOLLOW_CONSTRAINTS:
+        for constraint in cmds.listRelatives(handle, children=True, type=kind) or []:
+            targets = getattr(cmds, kind)(constraint, query=True, targetList=True) or []
+            if control in [naming.short_name(t) for t in targets]:
+                return True
+    plugs = ["%s.%s" % (handle, a) for a in ("translate", "translateX", "translateY", "translateZ",
+                                               "offsetParentMatrix")]
+    return control in _upstream_nodes([p for p in plugs if cmds.objExists(p)])
+
+
+def find_ik_handle(ik_control, near=None):
+    """The IK handle that follows ``ik_control`` (the one closest to ``near``)."""
+    handles = [h for h in cmds.ls(type="ikHandle") or [] if _follows(h, ik_control)]
+    if not handles:
+        return None
+    if near is not None and len(handles) > 1:
+        position = transform.get_position(near)
+        handles.sort(key=lambda h: mathlib.distance(transform.get_position(h), position))
+    return naming.short_name(handles[0])
+
+
+def attach_ik_handle(handle, parent):
+    """Move ``handle`` under ``parent`` (keeping its world position).
+
+    Point / parent / orient constraints and translate inputs that made it
+    follow the IK control are removed; its pole vector constraint stays.
+    """
+    for kind in _FOLLOW_CONSTRAINTS:
+        constraints = cmds.listRelatives(handle, children=True, type=kind) or []
+        if constraints:
+            cmds.delete(constraints)
+    for attr in ("translate", "translateX", "translateY", "translateZ", "offsetParentMatrix"):
+        plug = "%s.%s" % (handle, attr)
+        for source in cmds.listConnections(plug, source=True, destination=False, plugs=True) or []:
+            cmds.disconnectAttr(source, plug)
+    for attr in ("translateX", "translateY", "translateZ"):
+        cmds.setAttr("%s.%s" % (handle, attr), lock=False)
+    position = transform.get_position(handle)
+    handle = cmds.parent(handle, parent)[0]
+    cmds.xform(handle, worldSpace=True, translation=position)
+    return handle
+
+
+def release_ankle(ankle, keep_under):
+    """Delete orient constraints on ``ankle`` whose targets do not move with
+    the foot (not under ``keep_under``), so the foot drives the ankle."""
+    root = (cmds.ls(keep_under, long=True) or [keep_under])[0]
+    for constraint in cmds.listRelatives(ankle, children=True, type="orientConstraint") or []:
+        targets = cmds.orientConstraint(constraint, query=True, targetList=True) or []
+        longs = [(cmds.ls(t, long=True) or [t])[0] for t in targets]
+        if not all(t.startswith(root + "|") for t in longs):
+            cmds.delete(constraint)
 
 
 def find_foot_joints(reverse_chain, tolerance):
@@ -246,15 +325,18 @@ def _drive_rotation(joint, terms, name, side):
 
 def build_reverse_foot_from_chain(ik_control, reverse_root, end_target=None, ankle=None, inner_pos=None,
                                   outer_pos=None, name="foot", side=None, roll_break=30.0, roll_straight=60.0,
-                                  bank_width=0.3):
+                                  bank_width=0.3, ik_handle=None):
     """Reverse foot driven by an existing reverse joint chain.
 
     The chain is ``heel > toe tip > ball > ankle`` (each joint a child of the
     previous one), with the ankle and ball on the base foot joints. The base
     ankle / ball / toe are found from their positions (or pass ``ankle``).
 
-    :param end_target: what the leg IK follows (default: found under the IK
-        control)
+    :param end_target: the ``...End`` locator the leg IK follows (toolkit IK
+        tools; found under the IK control by default)
+    :param ik_handle: the leg IK handle to move with the foot when there is
+        no such locator (default: the handle that follows the IK control -
+        parented under it, constrained or connected to it)
     :param inner_pos, outer_pos: bank pivots; default on each side of the
         ball, ``bank_width`` times the foot length apart. They sit under
         ``..._ZRO`` groups: move those to adjust the pivots later.
@@ -280,9 +362,13 @@ def build_reverse_foot_from_chain(ik_control, reverse_root, end_target=None, ank
         ankle, ball, toe = find_foot_joints(chain, tolerance)
     if _distance(ankle, rev_ankle) > tolerance:
         raise ValueError("The reverse ankle %s is not on the ankle %s" % (rev_ankle, ankle))
-    end_target = end_target or find_end_target(ik_control)
-    if not end_target:
-        raise ValueError("No IK end target under %s - build it with IK Chain / IK/FK Limb first" % ik_control)
+    if not ik_handle:
+        end_target = end_target or find_end_target(ik_control)
+        if not end_target:
+            ik_handle = find_ik_handle(ik_control, near=ankle)
+    if not end_target and not ik_handle:
+        raise ValueError("No IK handle follows %s (parented under it, constrained or connected to it)"
+                         % ik_control)
 
     heel_pos = transform.get_position(rev_heel)
     toe_pos = transform.get_position(rev_toe)
@@ -311,8 +397,14 @@ def build_reverse_foot_from_chain(ik_control, reverse_root, end_target=None, ank
     orient_tools.freeze_rotations(chain)
     toe_tap = _pivot(name + "ToeTap", side, ball_pos, frame, rev_toe)
 
-    end_target = cmds.parent(end_target, rev_ankle)[0]
-    cmds.xform(end_target, worldSpace=True, translation=transform.get_position(ankle))
+    if ik_handle:
+        end_target = attach_ik_handle(ik_handle, rev_ankle)
+    else:
+        end_target = cmds.parent(end_target, rev_ankle)[0]
+        cmds.xform(end_target, worldSpace=True, translation=transform.get_position(ankle))
+    # an ankle orient constraint to something that does not roll with the
+    # foot (e.g. the IK control itself) would fight the foot
+    release_ankle(ankle, rev_heel)
     ball_handle, toe_handle = _foot_handles(ankle, ball, toe, rev_ball, toe_tap, name, side)
 
     rolls = _roll_network(plugs, name, side)
@@ -330,6 +422,7 @@ def build_reverse_foot_from_chain(ik_control, reverse_root, end_target=None, ank
         "ball_handle": ball_handle,
         "toe_handle": toe_handle,
         "end_target": end_target,
+        "ik_handle": ik_handle and end_target,
         "joints": (ankle, ball, toe),
     }
 
@@ -424,7 +517,8 @@ def build_reverse_chain(ankle, ball, heel_pos, tip_pos, name="foot", side=None, 
 
 
 def build_reverse_foot_auto(ik_control, foot_joints, heel_pos=None, inner_pos=None, outer_pos=None, name="foot",
-                            side=None, roll_break=30.0, roll_straight=60.0, heel_back=0.3, bank_width=0.3):
+                            side=None, roll_break=30.0, roll_straight=60.0, heel_back=0.3, bank_width=0.3,
+                            ik_handle=None):
     """The whole reverse foot from the IK control and the foot joints.
 
     Creates the reverse joint chain (heel, toe tip, ball, ankle), the bank
@@ -438,11 +532,17 @@ def build_reverse_foot_auto(ik_control, foot_joints, heel_pos=None, inner_pos=No
     """
     ankle, ball, _toe, tip = foot_chain(foot_joints)
     ik_ankle = ik_counterpart(ankle)
+    if not ik_handle and not find_end_target(ik_control):
+        ik_handle = find_ik_handle(ik_control, near=ik_ankle)
+        if not ik_handle:  # fail before creating anything
+            raise ValueError("No IK handle follows %s (parented under it, constrained or connected to it)"
+                             % ik_control)
     default_heel, tip_pos = foot_guides(ankle, ball, tip, heel_back)
     heel_pos = heel_pos or default_heel
     reverse = build_reverse_chain(ankle, ball, heel_pos, tip_pos, name=name, side=side, parent=ik_control)
     result = build_reverse_foot_from_chain(ik_control, reverse[0], ankle=ik_ankle, inner_pos=inner_pos,
                                            outer_pos=outer_pos, name=name, side=side, roll_break=roll_break,
-                                           roll_straight=roll_straight, bank_width=bank_width)
+                                           roll_straight=roll_straight, bank_width=bank_width,
+                                           ik_handle=ik_handle)
     result["guides"] = {"heel": heel_pos, "toe_tip": tip_pos}
     return result

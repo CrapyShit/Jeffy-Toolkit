@@ -592,23 +592,25 @@ def build_reverse_foot_auto(mirror=True):
 
     selection = _selection(2, ordered=True)
     ik_ctl = selection[0]
+    # the leg IK handle is found from the IK control; selecting it is optional
+    handles = [s for s in selection[1:] if "." not in s and cmds.nodeType(s) == "ikHandle"]
     joints = [s for s in selection[1:] if "." not in s and cmds.nodeType(s) == "joint"]
-    guides = [s for s in selection[1:] if s not in joints]
+    guides = [s for s in selection[1:] if s not in joints and s not in handles]
     if not joints or cmds.nodeType(ik_ctl) == "joint":
         raise ToolError("Select the leg IK control, then the foot joints (ankle, ball, toe - or just the ankle)")
     if len(guides) not in (0, 1, 3):
         raise ToolError("Optional after the joints: a heel locator, or heel, inner and outer locators")
     positions = [transform.get_position(g) for g in guides]
 
-    def build(control, foot_joints, points):
+    def build(control, foot_joints, points, handle=None):
         side = naming.side_from_name(foot_joints[0]) or naming.side_from_name(control)
         heel = points[0] if points else None
         inner, outer = (points[1], points[2]) if len(points) == 3 else (None, None)
         label = (_name_side(control, "foot")[0].replace("IK", "").replace("Ik", "") or "leg") + "Foot"
         return foot.build_reverse_foot_auto(control, foot_joints, heel_pos=heel, inner_pos=inner, outer_pos=outer,
-                                            name=label, side=side)
+                                            name=label, side=side, ik_handle=handle)
 
-    results = [build(ik_ctl, joints, positions)]
+    results = [build(ik_ctl, joints, positions, handles[0] if handles else None)]
     built = [ik_ctl]
     if mirror:
         other_ctl = foot.mirror_name(ik_ctl)
@@ -617,7 +619,10 @@ def build_reverse_foot_auto(mirror=True):
                 and all(cmds.objExists(j) for j in other_joints) \
                 and not cmds.attributeQuery("roll", node=other_ctl, exists=True):
             mirrored = [(-p[0], p[1], p[2]) for p in positions]
-            results.append(build(other_ctl, other_joints, mirrored))
+            other_handle = foot.mirror_name(handles[0]) if handles else None
+            if other_handle and not cmds.objExists(other_handle):
+                other_handle = None
+            results.append(build(other_ctl, other_joints, mirrored, other_handle))
             built.append(other_ctl)
     decorators.message("Reverse foot on %s - move the ...Inner / ...Outer ZRO groups to adjust the bank pivots"
                        % ", ".join(built))
