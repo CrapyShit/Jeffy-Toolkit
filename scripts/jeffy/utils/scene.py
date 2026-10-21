@@ -4,6 +4,7 @@ from maya import cmds, mel
 
 from jeffy.controls.control import is_control
 from jeffy.core import attributes, dag, logger
+from jeffy.core import nodes as node_utils
 
 LOG = logger.get_logger("scene")
 
@@ -196,9 +197,9 @@ def scene_report():
         "blendshapes": len(cmds.ls(type="blendShape") or []),
         "constraints": len(cmds.ls(type="constraint") or []),
         "expressions": len(cmds.ls(type="expression") or []),
-        "utility_nodes": len(cmds.ls(type=["multiplyDivide", "plusMinusAverage", "condition", "reverse",
-                                           "blendColors", "remapValue", "clamp", "multDoubleLinear",
-                                           "addDoubleLinear", "multMatrix", "decomposeMatrix"]) or []),
+        "utility_nodes": len(cmds.ls(type=[node_utils.node_type(t) for t in (
+            "multiplyDivide", "plusMinusAverage", "condition", "reverse", "blendColors", "remapValue", "clamp",
+            "multDoubleLinear", "addDoubleLinear", "multMatrix", "decomposeMatrix")]) or []),
         "namespaces": len(list_namespaces()),
         "top_nodes": len(dag.top_level_nodes()),
     }

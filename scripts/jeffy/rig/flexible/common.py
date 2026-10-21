@@ -3,7 +3,7 @@
 from maya import cmds
 
 from jeffy.controls.control import Control
-from jeffy.core import attributes, naming
+from jeffy.core import attributes, naming, nodes
 
 #: Drawing override colours used by the course rig (left red, right yellow, centre green).
 SIDE_COLORS = {"L": (1.0, 0.0, 0.0), "R": (1.0, 1.0, 0.0), "C": (0.0, 1.0, 0.0)}
@@ -48,8 +48,8 @@ def lock_free(nodes, attrs=("t", "r", "s")):
 
 
 def node(node_type, name, side=None, suffix_key="utility", **attrs):
-    created = cmds.createNode(node_type, name=naming.unique_name(naming.compose(name, side, suffix_key)),
-                              skipSelect=True)
+    created = cmds.createNode(nodes.node_type(node_type),
+                              name=naming.unique_name(naming.compose(name, side, suffix_key)), skipSelect=True)
     for attr, value in attrs.items():
         attributes.set_or_connect(value, "%s.%s" % (created, attr))
     return created

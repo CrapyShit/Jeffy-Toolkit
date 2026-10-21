@@ -42,8 +42,10 @@ def matrix_constraint(driver, driven, maintain_offset=True, translate=True, rota
         index += 1
     cmds.connectAttr(driver + ".worldMatrix[0]", "%s.matrixIn[%d]" % (mm, index))
     index += 1
-    cmds.connectAttr(driven + ".parentInverseMatrix[0]", "%s.matrixIn[%d]" % (mm, index))
-    index += 1
+    parent_inverse = matrix.parent_inverse_plug(driven)
+    if parent_inverse:
+        cmds.connectAttr(parent_inverse, "%s.matrixIn[%d]" % (mm, index))
+        index += 1
 
     if use_offset_parent_matrix:
         transform.reset(driven)
@@ -101,7 +103,9 @@ def blend_matrix_constraint(drivers, driven, weights=None, maintain_offset=True,
         nodes.connect(weight, "%s.target[%d].weight" % (bm, i))
     local = cmds.createNode("multMatrix", name=naming.unique_name(base + "_local_MM"), skipSelect=True)
     cmds.connectAttr(bm + ".outputMatrix", local + ".matrixIn[0]")
-    cmds.connectAttr(driven + ".parentInverseMatrix[0]", local + ".matrixIn[1]")
+    parent_inverse = matrix.parent_inverse_plug(driven)
+    if parent_inverse:
+        cmds.connectAttr(parent_inverse, local + ".matrixIn[1]")
     transform.reset(driven)
     if cmds.nodeType(driven) == "joint":
         cmds.setAttr(driven + ".jointOrient", 0, 0, 0)
@@ -125,7 +129,9 @@ def aim_matrix_constraint(driven, target, up_object=None, aim_axis=(1, 0, 0), up
     cmds.connectAttr(rest + ".outputMatrix", position_mm + ".matrixIn[0]")
     parent_world = cmds.getAttr(driven + ".parentMatrix[0]")
     matrix.set_matrix_attr(position_mm + ".matrixIn[1]", mathlib.inverse(parent_world))
-    cmds.connectAttr(driven + ".parentMatrix[0]", position_mm + ".matrixIn[2]")
+    parent_world_plug = matrix.parent_world_plug(driven)
+    if parent_world_plug:
+        cmds.connectAttr(parent_world_plug, position_mm + ".matrixIn[2]")
     cmds.connectAttr(position_mm + ".matrixSum", am + ".inputMatrix")
     cmds.connectAttr(target + ".worldMatrix[0]", am + ".primaryTargetMatrix")
     cmds.setAttr(am + ".primaryInputAxis", *aim_axis)
@@ -138,7 +144,9 @@ def aim_matrix_constraint(driven, target, up_object=None, aim_axis=(1, 0, 0), up
         cmds.setAttr(am + ".secondaryTargetVector", *world_up)
     local = cmds.createNode("multMatrix", name=naming.unique_name(base + "_local_MM"), skipSelect=True)
     cmds.connectAttr(am + ".outputMatrix", local + ".matrixIn[0]")
-    cmds.connectAttr(driven + ".parentInverseMatrix[0]", local + ".matrixIn[1]")
+    parent_inverse = matrix.parent_inverse_plug(driven)
+    if parent_inverse:
+        cmds.connectAttr(parent_inverse, local + ".matrixIn[1]")
     transform.reset(driven, scale=False)
     if cmds.nodeType(driven) == "joint":
         cmds.setAttr(driven + ".jointOrient", 0, 0, 0)

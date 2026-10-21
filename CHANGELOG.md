@@ -25,17 +25,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   - *Eyelid Blink*: `blink` and `blinkHeight` on top of an upper and a lower
     lid curve rig. The lids meet on a line that follows the animated lid
     controls.
-- **Hybrid Spline IK/FK** (Rigging tab > Spline IK, menu *Rigging*, or
-  `jeffy.rig.spline.build_hybrid_spline`): a spline IK with an FK control on
-  every joint layered on top. Rotating an FK control bends everything below
-  it, on top of the IK shape.
-  - The IK controls drive the curve through tangent points, so rotating one
-    bends the curve around it (`tangentLength` sets how far it reaches). The
-    first and last controls twist the chain, the middle ones add twist to
-    their neighbours, and the last joint follows the last control's rotation.
-  - `ikBlend` on the last IK control blends the chain between IK and pure FK.
-    With *Per-joint IK/FK* every joint also gets its own `ik01`, `ik02`...
-    switch; a joint on FK keeps the joints below it attached (no gaps).
+- **Spline IK/FK Switch** (Rigging tab > Spline IK, menu *Rigging*, or
+  `jeffy.rig.spline.build_spline_ikfk`): spline IK and FK chains with an
+  `ikFk` switch on a settings gear (0 FK, 1 IK), like the IK/FK limbs.
+  The IK controls drive the curve through tangent points, so rotating any of
+  them - the middle ones too - bends the curve (`tangentLength` sets how far
+  it reaches). The first and last controls twist the chain and the last
+  joint follows the last control's rotation. It replaces the first
+  *Hybrid Spline IK/FK*, which was broken (see Fixed).
 - **IK/FK Fingers** (Rigging tab > Twist / Foot / Fingers, menu *Rigging*, or
   `jeffy.rig.fingers.build_finger_ikfk`) for contact poses (hands on a table,
   a wall, a prop). Each finger gets FK controls, an IK solved to the tip with
@@ -55,6 +52,15 @@ and the project uses [Semantic Versioning](https://semver.org/).
   still take `size` as given.
 
 ### Fixed
+- **Hybrid Spline IK/FK** raised `Cycle on '..._BM.outputMatrix'` and did not
+  evaluate properly: the root FK control's `offsetParentMatrix` was computed
+  from its own `parentInverseMatrix`. Replaced by *Spline IK/FK Switch*.
+- The same hidden cycle in **matrix constraints**, the **matrix space switch**
+  and **uvPin rivets** (also used by the face *On-Face Controls*): they now
+  use the parent's `worldInverseMatrix` (or `worldMatrix`). A test walks every
+  `offsetParentMatrix` network to keep it that way.
+- Maya 2026 warnings `Legacy node type 'multDoubleLinear' detected`: the
+  toolkit creates `multDL` / `addDL` in Maya 2026 and later.
 - **IK Chain, IK/FK Limb and every auto-rig template** crashed while creating
   the pole vector line (`setAttr: No object matches name:
   |..._CRV|..._CRVShape.overrideEnabled`). The line's shape was stored as a

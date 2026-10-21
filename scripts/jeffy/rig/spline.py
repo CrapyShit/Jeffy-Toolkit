@@ -14,7 +14,7 @@ from jeffy.controls.control import Control
 from jeffy.core import attributes, naming, nodes
 from jeffy.geometry import curves
 from jeffy.joints import tools as joint_tools
-from jeffy.rig import common
+from jeffy.rig import common, fk
 
 FORWARD_AXIS = {"x": 0, "-x": 1, "y": 2, "-y": 3, "z": 4, "-z": 5}
 UP_AXIS = {"y": 0, "-y": 1, "z": 3, "-z": 4, "x": 6, "-x": 7}
@@ -152,103 +152,31 @@ def add_stretch(joints, curve, settings, name="spline", side=None, forward=None,
     return plugs
 
 
-def _rotate_attr(axis):
-    return "rotate" + axis.lstrip("-").upper()
+def build_tangent_curve(joints, name="spline", side=None, num_controls=3, control_parent=None, curve_parent=None,
+                        shape="circle", size=1.0, color_value=None):
+    """IK controls driving a curve through *tangent* points.
 
+    Each control owns the curve point under it and the tangent points on each
+    side of it (like a Bezier handle), so rotating any control - the middle
+    ones too - bends the curve around it. ``tangentLength`` on each control
+    scales its tangents.
 
-def _chain_fractions(joints):
-    """Length fraction (0 -> 1) of every joint along the chain."""
-    from jeffy.core import mathlib
-
-    positions = [cmds.xform(j, query=True, worldSpace=True, translation=True) for j in joints]
-    lengths = [0.0]
-    for a, b in zip(positions, positions[1:]):
-        lengths.append(lengths[-1] + mathlib.distance(a, b))
-    total = lengths[-1] or 1.0
-    return [value / total for value in lengths]
-
-
-def _hat(t, center, step):
-    """Weight of a control at ``center`` for a joint at ``t`` (1 on the control,
-    0 on its neighbours)."""
-    return max(0.0, 1.0 - abs(t - center) / step)
-
-
-def build_hybrid_spline(
-    joints,
-    name="spline",
-    side=None,
-    num_controls=3,
-    control_parent=None,
-    systems_parent=None,
-    shape="circle",
-    fk_shape="square",
-    size=1.0,
-    up_axis="y",
-    stretch=True,
-    volume=True,
-    per_joint_switch=True,
-    color_value=None,
-):
-    """Spline IK with an FK control on every joint, layered on top of the IK.
-
-    ::
-
-        IK controls  -> curve -> spline IK chain (shape, stretch, twist)
-        FK controls  -> one per joint, each under the previous one, following
-                        the IK chain; rotating one bends everything below it
-        bind joints  -> follow the FK controls
-
-    * The IK controls drive the curve through *tangent* points, so rotating a
-      control bends the curve around it like a Bezier handle
-      (``tangentLength`` on each control sets how far its influence reaches).
-      The first and last controls twist the chain (advanced twist), the
-      middle ones add twist spread to their neighbours, and the last joint
-      follows the rotation of the last control.
-    * ``ikBlend`` (on the last IK control) blends the whole chain between
-      following the IK (1) and pure FK (0). With ``per_joint_switch`` each
-      joint also gets its own ``ik01``, ``ik02``... attribute: a joint at 0
-      ignores the IK and only follows its FK control, the joints below it
-      keep their IK shape relative to it, so there is never a gap.
-
-    :param joints: the bind joints, root -> tip (at least 3)
-    :returns: dict with ``ik_controls``, ``fk_controls``, ``ik_joints``,
-        ``curve``, ``handle``, ``settings``, ``switch`` (master plug),
-        ``joint_switches`` and ``group``
+    :returns: ``(controls, curve)``
     """
-    from jeffy.core import mathlib
-
-    joints = [naming.short_name(j) for j in joints]
-    if len(joints) < 3:
-        raise ValueError("Spline IK needs at least 3 joints")
     num_controls = max(2, int(num_controls))
-    forward = common.primary_axis(joints[1])
-    axis = forward.lstrip("-")
-    base = name
-    group = common.create_group(naming.compose(base + "Hybrid", side, "group"), parent=systems_parent,
-                                visible=False)
-
-    # IK chain (a copy of the bind chain, following the bind chain's parent)
-    parent = (cmds.listRelatives(joints[0], parent=True) or [None])[0]
-    chain_parent = common.follow_group(naming.compose(base + "IkFollow", side, "group"), parent, parent=group) \
-        if parent else group
-    ik_joints = joint_tools.duplicate_chain(joints[0], joints[-1], search="_JNT", replace="_IK_JNT")
-    ik_joints[0] = cmds.parent(ik_joints[0], chain_parent)[0]
-    ik_joints = [naming.short_name(j) for j in ik_joints]
-
-    # curve points: control, tangent, tangent, control, ... (3n - 2 points)
-    guide = curves.curve_from_joints(joints, name=naming.compose(base + "Guide", side, "curve"), degree=3)
+    axis = common.primary_axis(joints[1]).lstrip("-")
+    guide = curves.curve_from_joints(joints, name=naming.compose(name + "Guide", side, "curve"), degree=3)
     points = curves.positions_along(guide, 3 * num_controls - 2)
     cmds.delete(guide)
 
-    ik_controls = []
-    drivers = []  # node driving each curve point
+    controls = []
+    drivers = []  # node driving each curve point, in order
     previous = None
     for i in range(num_controls):
         position = points[3 * i]
         closest = min(joints, key=lambda j: sum(
             (a - b) ** 2 for a, b in zip(cmds.xform(j, query=True, worldSpace=True, translation=True), position)))
-        label = "%sIK%02d" % (base, i + 1)
+        label = "%sIK%02d" % (name, i + 1)
         ctl = Control.create(label, side=side, shape=shape, size=size, axis=axis, parent=control_parent,
                              match=closest, offsets=("zero", "space"), color_value=color_value)
         cmds.xform(ctl.zero, worldSpace=True, translation=position)
@@ -269,22 +197,81 @@ def build_hybrid_spline(
             drivers.append(tangents.pop(0))
         drivers.append(ctl.node)
         drivers.extend(tangents)
-        ik_controls.append(ctl)
+        controls.append(ctl)
 
-    curve = curves.curve_from_points(points, name=naming.compose(base, side, "curve"), degree=3, through=False)
-    curve = cmds.parent(curve, group)[0]
+    curve = curves.curve_from_points(points, name=naming.compose(name, side, "curve"), degree=3, through=False)
+    if curve_parent:
+        curve = cmds.parent(curve, curve_parent)[0]
     cmds.setAttr(curve + ".inheritsTransform", 0)
-    shape_node = cmds.listRelatives(curve, shapes=True, fullPath=False)[0]
+    shape_node = cmds.listRelatives(curve, shapes=True)[0]
     for index, node in enumerate(drivers):
         decompose = nodes.decompose_matrix(node + ".worldMatrix[0]",
-                                           name=naming.compose("%sPoint%02d" % (base, index), side,
+                                           name=naming.compose("%sPoint%02d" % (name, index), side,
                                                                "decompose_matrix"))
         cmds.connectAttr(decompose + ".outputTranslate", "%s.controlPoints[%d]" % (shape_node, index), force=True)
+    return controls, curve
 
+
+def build_spline_ikfk(
+    joints,
+    name="spline",
+    side=None,
+    num_controls=3,
+    control_parent=None,
+    systems_parent=None,
+    shape="circle",
+    fk_shape="circle",
+    size=1.0,
+    up_axis="y",
+    stretch=True,
+    volume=True,
+    default_mode=1.0,
+    color_value=None,
+):
+    """Spline IK chain and FK chain with an ``ikFk`` switch (0 FK, 1 IK).
+
+    Like an IK/FK limb: the bind ``joints`` blend between an FK copy (one
+    control per joint) and a spline IK copy. The IK controls drive the curve
+    through tangent points, so rotating any of them - the middle ones too -
+    bends the curve; the first and last also twist the chain and the last
+    joint follows the last control's rotation.
+
+    :returns: dict with ``settings``, ``switch``, ``ik_controls``,
+        ``fk_controls``, ``ik_joints``, ``fk_joints``, ``curve``, ``handle``
+        and ``group``
+    """
+    joints = [naming.short_name(j) for j in joints]
+    if len(joints) < 3:
+        raise ValueError("Spline IK needs at least 3 joints")
+    forward = common.primary_axis(joints[1])
+    group = common.create_group(naming.compose(name + "SplineRig", side, "group"), parent=systems_parent,
+                                visible=False)
+
+    # the copies follow the bind chain's parent; their roots stay free (the
+    # spline solver and the FK control drive them)
+    parent = (cmds.listRelatives(joints[0], parent=True) or [None])[0]
+    chain_parent = common.follow_group(naming.compose(name + "ChainFollow", side, "group"), parent, parent=group) \
+        if parent else group
+    chains = {}
+    for key in ("FK", "IK"):
+        chain = joint_tools.duplicate_chain(joints[0], joints[-1], search="_JNT", replace="_%s_JNT" % key)
+        chain[0] = cmds.parent(chain[0], chain_parent)[0]
+        chains[key] = [naming.short_name(j) for j in chain]
+    fk_joints, ik_joints = chains["FK"], chains["IK"]
+
+    holder = control_parent
+    if holder is None and parent:
+        holder = common.follow_group(naming.compose(name + "Follow", side, "group"), parent)
+
+    # IK -------------------------------------------------------------------------
+    ik_group = common.create_group(naming.compose(name + "IKControls", side, "group"), parent=holder)
+    ik_controls, curve = build_tangent_curve(joints, name=name, side=side, num_controls=num_controls,
+                                             control_parent=ik_group, curve_parent=group, shape=shape, size=size,
+                                             color_value=color_value)
     handle, effector = cmds.ikHandle(startJoint=ik_joints[0], endEffector=ik_joints[-1], solver="ikSplineSolver",
                                      curve=curve, createCurve=False, parentCurve=False, rootOnCurve=True,
-                                     simplifyCurve=False, name=naming.compose(base, side, "ik_handle"))
-    cmds.rename(effector, naming.compose(base, side, "effector"))
+                                     simplifyCurve=False, name=naming.compose(name, side, "ik_handle"))
+    cmds.rename(effector, naming.compose(name, side, "effector"))
     handle = cmds.parent(handle, group)[0]
     cmds.setAttr(handle + ".dTwistControlEnable", 1)
     cmds.setAttr(handle + ".dWorldUpType", 4)
@@ -297,78 +284,40 @@ def build_hybrid_spline(
     # the solver leaves the end joint free: it follows the last control
     cmds.orientConstraint(ik_controls[-1].node, ik_joints[-1], maintainOffset=True)
 
-    settings = ik_controls[-1].node
-    result = {"ik_controls": ik_controls, "ik_joints": ik_joints, "curve": curve, "handle": handle,
-              "settings": settings, "group": group}
+    # FK -------------------------------------------------------------------------
+    fk_group = common.create_group(naming.compose(name + "FKControls", side, "group"), parent=holder)
+    fk_result = fk.build_fk_chain(fk_joints, name=name + "FK", side=side, shape=fk_shape, size=size * 1.2,
+                                  axis=forward.lstrip("-"), parent=fk_group, color_value=color_value)
+    fk_controls = fk_result["controls"]
+
+    # settings + switch ------------------------------------------------------------
+    settings = Control.create(name + "Settings", side=side, shape="gear", size=size * 0.4, parent=holder,
+                              match=joints[-1], lock=("t", "r", "s", "v"), color_value="white")
+    cmds.parentConstraint(joints[-1], settings.zero, maintainOffset=True)
+    switch = attributes.add_attr(settings.node, "ikFk", "float", default=default_mode, minimum=0.0, maximum=1.0)
     if stretch or volume:
-        result.update(add_stretch(ik_joints, curve, settings, name=base, side=side, forward=forward,
-                                  scale_node=ik_controls[0].zero, stretch=stretch, volume=volume))
+        add_stretch(ik_joints, curve, settings.node, name=name, side=side, forward=forward,
+                    scale_node=ik_controls[0].zero, stretch=stretch, volume=volume)
 
-    # switches -----------------------------------------------------------------
-    attributes.add_separator(settings, "ikFk")
-    switch = attributes.add_attr(settings, "ikBlend", "float", default=1.0, minimum=0.0, maximum=1.0)
-    weights = []
-    joint_switches = []
-    for i in range(len(joints)):
-        if per_joint_switch:
-            plug = attributes.add_attr(settings, "ik%02d" % (i + 1), "float", default=1.0, minimum=0.0, maximum=1.0)
-            joint_switches.append(plug)
-            weights.append(nodes.multiply(switch, plug, name=naming.compose("%sIk%02d" % (base, i + 1), side,
-                                                                            "multiply_divide")))
-        else:
-            weights.append(switch)
+    reverse = nodes.reverse(switch, name=naming.compose(name + "IkFk", side, "reverse"))
+    for bind, fk_joint, ik_joint in zip(joints, fk_joints, ik_joints):
+        constraint = cmds.parentConstraint(fk_joint, ik_joint, bind, maintainOffset=False)[0]
+        cmds.setAttr(constraint + ".interpType", 2)
+        weights = common.constraint_weight_plugs(constraint)
+        cmds.connectAttr(reverse, weights[0])
+        cmds.connectAttr(switch, weights[1])
+        blend_scale = cmds.createNode("blendColors", name=naming.unique_name(bind + "_scale_BLD"), skipSelect=True)
+        cmds.connectAttr(ik_joint + ".scale", blend_scale + ".color1")
+        cmds.connectAttr(fk_joint + ".scale", blend_scale + ".color2")
+        cmds.connectAttr(switch, blend_scale + ".blender")
+        cmds.connectAttr(blend_scale + ".output", bind + ".scale", force=True)
 
-    # FK layer -----------------------------------------------------------------
-    fractions = _chain_fractions(joints)
-    step = 1.0 / (num_controls - 1)
-    middle = list(range(1, num_controls - 1))
-    rotate_attr = _rotate_attr(forward)
-    fk_controls = []
-    fk_parent = control_parent
-    for i, (bind, ik_joint) in enumerate(zip(joints, ik_joints)):
-        label = (naming.parse(bind)["name"] or "%s%02d" % (base, i + 1)) + "FK"
-        ctl = Control.create(label, side=side, shape=fk_shape, size=size * 0.8, axis=axis, parent=fk_parent,
-                             match=bind, offsets=("zero", "offset"), lock=("s", "v"), color_value=color_value)
-        if fk_controls:
-            ctl.set_parent_tag(fk_controls[-1].node)
-        zero = ctl.zero
-        cmds.xform(zero, objectSpace=True, translation=(0, 0, 0), rotation=(0, 0, 0), scale=(1, 1, 1))
-        if i == 0:
-            follow = nodes.mult_matrix([ik_joint + ".worldMatrix[0]", zero + ".parentInverseMatrix[0]"],
-                                       name=naming.compose(label + "Ik", side, "mult_matrix"))
-        else:
-            follow = ik_joint + ".matrix"
-        follow = nodes.pick_matrix(follow, scale=False, shear=False,
-                                   name=naming.compose(label + "Ik", side, "pick_matrix"))
-        # pure FK: the IK pose at build time, frozen
-        rest = cmds.getAttr(ik_joint + ".matrix")
-        if i == 0:
-            rest = mathlib.mult(cmds.getAttr(ik_joint + ".worldMatrix[0]"),
-                                cmds.getAttr(zero + ".parentInverseMatrix[0]"))
-        blend = cmds.createNode("blendMatrix", name=naming.compose(label, side, "blend_matrix"), skipSelect=True)
-        cmds.setAttr(blend + ".inputMatrix", *rest, type="matrix")
-        cmds.connectAttr(follow, blend + ".target[0].targetMatrix")
-        cmds.connectAttr(weights[i], blend + ".target[0].weight")
-        cmds.connectAttr(blend + ".outputMatrix", zero + ".offsetParentMatrix", force=True)
+    fk_vis = nodes.condition(switch, "<", 1.0, 1.0, 0.0, name=naming.compose(name + "FkVis", side, "condition"))
+    ik_vis = nodes.condition(switch, ">", 0.0, 1.0, 0.0, name=naming.compose(name + "IkVis", side, "condition"))
+    cmds.connectAttr(fk_vis, fk_group + ".visibility")
+    cmds.connectAttr(ik_vis, ik_group + ".visibility")
+    for ctl in ik_controls + fk_controls:
+        attributes.add_proxy(switch, ctl.node)
 
-        # twist of the middle IK controls, spread to their neighbours. The FK
-        # controls are a hierarchy, so each one only adds the difference.
-        if i > 0 and middle:
-            terms = []
-            for k in middle:
-                factor = _hat(fractions[i], k * step, step) - _hat(fractions[i - 1], k * step, step)
-                if abs(factor) > 1e-4:
-                    terms.append(nodes.multiply(ik_controls[k].node + "." + rotate_attr, factor))
-            if terms:
-                total = terms[0] if len(terms) == 1 else nodes.sum_values(
-                    terms, name=naming.compose(label + "Twist", side, "plus_minus"))
-                cmds.connectAttr(total, "%s.%s" % (zero, rotate_attr), force=True)
-
-        cmds.parentConstraint(ctl.node, bind, maintainOffset=False)
-        cmds.connectAttr(ik_joint + ".scale", bind + ".scale", force=True)
-        fk_controls.append(ctl)
-        fk_parent = ctl.node
-
-    cmds.setAttr(ik_joints[0] + ".visibility", 0)
-    result.update({"fk_controls": fk_controls, "switch": switch, "joint_switches": joint_switches})
-    return result
+    return {"settings": settings, "switch": switch, "ik_controls": ik_controls, "fk_controls": fk_controls,
+            "ik_joints": ik_joints, "fk_joints": fk_joints, "curve": curve, "handle": handle, "group": group}
