@@ -185,7 +185,87 @@ def test_ik_chain_and_reverse_foot(cmds):
         locators.append(loc)
     cmds.select([ik_ctl, ankle, ball, toe] + locators)
     run(actions.build_reverse_foot)
-    assert len(cmds.ls(type="ikHandle")) == 3
+    # leg + toe handles; the ankle already follows the foot through the IK
+    # tool's orient constraint, so no ankle -> ball handle fights it
+    handles = cmds.ls(type="ikHandle")
+    assert len(handles) == 2, handles
+    assert cmds.listRelatives(ankle, children=True, type="orientConstraint")
+
+
+def make_leg(cmds, side="L", x=2.0, prefix="", with_reverse=True):
+    """hip > knee > ankle > ball > toe, plus a reverse chain heel > toe tip > ball > ankle."""
+    names = ("hip", "knee", "ankle", "ball", "toe")
+    offsets = ((x, 10.0, 0.0), (0.0, -5.0, 0.3), (0.0, -4.5, -0.3), (0.0, -0.4, 1.0), (0.0, 0.0, 1.0))
+    joints = []
+    parent = None
+    for name, offset in zip(names, offsets):
+        joint = cmds.createNode("joint", name="%s_%s%s_JNT" % (side, prefix, name), parent=parent)
+        cmds.setAttr(joint + ".translate", *offset)
+        joints.append(joint)
+        parent = joint
+    if not with_reverse:
+        return joints, None
+    group = cmds.createNode("transform", name="%s_Ctrl" % side)
+    reverse = []
+    parent = group
+    for i, pos in enumerate(((x, 0.0, -0.5), (x, 0.0, 2.0), (x, 0.1, 1.0), (x, 0.5, 0.0))):
+        joint = cmds.createNode("joint", name="%s_reversefoot%02d" % (side, i + 1), parent=parent)
+        cmds.xform(joint, worldSpace=True, translation=pos)
+        reverse.append(joint)
+        parent = joint
+    return joints, reverse
+
+
+@pytest.mark.parametrize("mirror", [True, False])
+def test_reverse_foot_from_chain(cmds, mirror):
+    from jeffy.ui import actions
+
+    legs = {}
+    for side, x in (("L", 2.0), ("R", -2.0)):
+        joints, reverse = make_leg(cmds, side, x)
+        cmds.select(joints[0], joints[2])
+        run(actions.build_ik)
+        ik_ctl = [n for n in cmds.ls("%s_*IK_CTL" % side) if "Pole" not in n][0]
+        legs[side] = (joints, reverse, ik_ctl)
+
+    joints, reverse, ik_ctl = legs["L"]
+    cmds.select(ik_ctl, reverse[0])
+    run(actions.build_reverse_foot_from_chain, mirror)
+
+    for side in ("L", "R") if mirror else ("L",):
+        joints, reverse, ik_ctl = legs[side]
+        assert cmds.attributeQuery("roll", node=ik_ctl, exists=True)
+        # the chain hangs under the bank pivots, under the IK control
+        inner = cmds.listRelatives(reverse[0], parent=True)[0]
+        outer = cmds.listRelatives(cmds.listRelatives(inner, parent=True)[0], parent=True)[0]
+        assert "Inner" in inner and "Outer" in outer
+        assert cmds.listRelatives(cmds.listRelatives(outer, parent=True)[0], parent=True)[0] == ik_ctl
+        # heel, toe tip and ball joints are rotated by the roll network
+        for joint in reverse[:3]:
+            assert driver(cmds, joint + ".rotate").endswith(".outputRotate"), joint
+        # the leg IK target follows the reverse ankle, the toe handle the toe tap pivot
+        assert [c for c in cmds.listRelatives(reverse[3], children=True) or [] if "End" in c]
+        toe_handles = [h for h in cmds.ls(type="ikHandle") if "Toe" in h and h.startswith(side)]
+        assert toe_handles and "ToeTap" in cmds.listRelatives(toe_handles[0], parent=True)[0]
+    assert cmds.attributeQuery("roll", node=legs["R"][2], exists=True) == mirror
+    assert_no_offset_parent_cycles(cmds)
+
+
+def test_reverse_foot_finds_the_ik_ankle(cmds):
+    from jeffy.rig import foot
+
+    _bind, reverse = make_leg(cmds, "L", 2.0)
+    ik_joints, _none = make_leg(cmds, "L", 2.0, prefix="IK", with_reverse=False)
+    assert foot.find_foot_joints(reverse, 0.1) == (ik_joints[2], ik_joints[3], ik_joints[4])
+
+
+def test_reverse_foot_ambiguous_ankle_raises(cmds):
+    from jeffy.rig import foot
+
+    _joints, reverse = make_leg(cmds, "L", 2.0)
+    make_leg(cmds, "L", 2.0, prefix="FK", with_reverse=False)
+    with pytest.raises(ValueError, match="Several ankle joints"):
+        foot.find_foot_joints(reverse, 0.1)
 
 
 @pytest.fixture

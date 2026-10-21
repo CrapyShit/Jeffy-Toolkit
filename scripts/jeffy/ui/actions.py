@@ -585,6 +585,46 @@ def build_reverse_foot():
                             name=_name_side(ankle, "foot")[0], side=naming.side_from_name(ankle))
 
 
+@tool("Reverse Foot From Chain")
+def build_reverse_foot_from_chain(mirror=True):
+    from jeffy.rig import foot
+
+    selection = _selection(2, ordered=True)
+    ik_ctl, reverse_root = selection[:2]
+    if cmds.nodeType(reverse_root) != "joint":
+        raise ToolError("Select the leg IK control, then the first joint of the reverse chain (the heel)")
+    # optional extras: [IK ankle joint] [inner pivot, outer pivot]
+    extras = selection[2:]
+    ankle = None
+    if len(extras) in (1, 3):
+        if cmds.nodeType(extras[0]) != "joint":
+            raise ToolError("The third object must be the IK ankle joint")
+        ankle, extras = extras[0], extras[1:]
+    if len(extras) not in (0, 2):
+        raise ToolError("Optional extras: the IK ankle joint, and/or the inner then outer bank pivots")
+
+    def build(control, root, ankle_joint=None, pivots=None):
+        from jeffy.core import transform
+
+        side = naming.side_from_name(root) or naming.side_from_name(control)
+        inner, outer = (transform.get_position(p) for p in pivots) if pivots else (None, None)
+        return foot.build_reverse_foot_from_chain(control, root, ankle=ankle_joint, inner_pos=inner,
+                                                  outer_pos=outer, name=_name_side(control, "foot")[0]
+                                                  .replace("IK", "").replace("Ik", "") + "Foot", side=side)
+
+    results = [build(ik_ctl, reverse_root, ankle, extras)]
+    built = [ik_ctl]
+    if mirror:
+        other_ctl, other_root = foot.mirror_name(ik_ctl), foot.mirror_name(reverse_root)
+        if other_ctl and other_root and cmds.objExists(other_ctl) and cmds.objExists(other_root) \
+                and not cmds.attributeQuery("roll", node=other_ctl, exists=True):
+            results.append(build(other_ctl, other_root))
+            built.append(other_ctl)
+    decorators.message("Reverse foot on %s" % ", ".join(built))
+    cmds.select(built)
+    return results
+
+
 @tool("Space Switch")
 def add_space_switch(mode="parent", method="constraint", attr="space"):
     from jeffy.rig import space_switch

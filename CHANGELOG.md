@@ -7,6 +7,20 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Reverse Foot From Chain** (Rigging tab > Twist / Foot / Fingers, menu
+  *Rigging*, or `jeffy.rig.foot.build_reverse_foot_from_chain`): select the
+  leg IK control, then the first joint of your own reverse chain
+  (heel > toe tip > ball > ankle).
+  - The base ankle, ball and toe are found from the reverse joints'
+    positions (joints named `IK` win when several chains overlap). The leg
+    IK target is found under the IK control.
+  - The reverse joints keep their orientation: the roll and twist networks
+    rotate them around the foot's side and up axes through quaternions.
+  - Inner and outer bank pivots are created on each side of the ball (or
+    select your own); move their `ZRO` groups to adjust them.
+  - *Both sides* builds the other foot too when the `L_` / `R_` names match.
+  - Same attributes as *Reverse Foot*: `roll`, `rollBreak`, `rollStraight`,
+    `bank`, `heelTwist`, `toeTwist`, `ballTwist`, `toeTap`.
 - **Face tab** (and a *Face* menu), with the Python API in `jeffy.rig.face`:
   - *Create Slider*: a handle limited to its frame (vertical, horizontal or
     2D square) with 0..1 `up` / `down` / `right` / `left` outputs on the
@@ -52,6 +66,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   still take `size` as given.
 
 ### Fixed
+- **Reverse Foot**: the ankle was driven twice, by the leg IK's orient
+  constraint and by an extra ankle -> ball IK handle. The handle is now only
+  made when the ankle has no orient constraint.
 - **Hybrid Spline IK/FK** raised `Cycle on '..._BM.outputMatrix'` and did not
   evaluate properly: the root FK control's `offsetParentMatrix` was computed
   from its own `parentInverseMatrix`. Replaced by *Spline IK/FK Switch*.
