@@ -6,6 +6,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Rig scale**: a global multiplier for the size of every control the
+  toolkit builds, so the default shapes fit any character size in the scene.
+  Set it in the *Rig scale* field at the top of the window (every tab uses it)
+  or with `jeffy.set_rig_scale(0.1)`; it is saved between sessions. It scales
+  the size given to each tool (controls, rig structure, FK, IK, IK/FK, spline,
+  ribbon, eye rig, fingers, dynamic chain, every Flexible Rig setup) and the
+  offsets that follow that size, plus the auto-rig template guides. Auto-rig
+  controls already follow the guide lengths, so they scale with the guides.
+  Existing controls are not changed. The Python builders (`jeffy.rig...`)
+  still take `size` as given.
+
 ### Fixed
 - **IK Chain, IK/FK Limb and every auto-rig template** crashed while creating
   the pole vector line (`setAttr: No object matches name:

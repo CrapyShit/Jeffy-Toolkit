@@ -36,6 +36,25 @@ def show(*args, **kwargs):
     return main_window.show(*args, **kwargs)
 
 
+def set_rig_scale(value):
+    """Global size multiplier for every control created from now on.
+
+    ``jeffy.set_rig_scale(0.1)`` makes every setup (controls, ribbons, IK/FK,
+    flexible rig, auto-rig...) draw its controls ten times smaller. Saved with
+    the user settings, so it stays between Maya sessions.
+    """
+    from jeffy.core import settings
+
+    return settings.set_rig_scale(value)
+
+
+def get_rig_scale():
+    """Current global control size multiplier (1.0 by default)."""
+    from jeffy.core import settings
+
+    return settings.rig_scale()
+
+
 def install_menu():
     """Create (or rebuild) the "Jeffy" menu in Maya's main menu bar."""
     from jeffy.ui import menu
