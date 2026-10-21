@@ -33,6 +33,29 @@ def pole_vector_position(start, mid, end, distance_factor=1.0):
     )
 
 
+#: pole axis choices: ``auto`` (bend direction) or a local axis of the middle joint
+POLE_AXES = ("auto", "+x", "-x", "+y", "-y", "+z", "-z")
+
+
+def pole_vector_position_axis(start, mid, end, axis, distance_factor=1.0):
+    """Pole position along a local ``axis`` (``"+z"``, ``"-y"``...) of ``mid``.
+
+    The pole sits ``distance_factor`` times the chain length from ``mid``.
+    Pick the axis the middle joint points to when the chain bends (the
+    knuckle / elbow / knee side).
+    """
+    axis = axis.lower()
+    if axis not in POLE_AXES[1:]:
+        raise ValueError("pole axis must be one of %s" % (POLE_AXES,))
+    world = cmds.xform(mid, query=True, worldSpace=True, matrix=True)
+    direction = mathlib.normalize(mathlib.axes(world)["xyz".index(axis[1])])
+    if axis[0] == "-":
+        direction = mathlib.scale(direction, -1.0)
+    start_pos, mid_pos, end_pos = (transform.get_position(n) for n in (start, mid, end))
+    length = mathlib.distance(start_pos, mid_pos) + mathlib.distance(mid_pos, end_pos)
+    return mathlib.add(mid_pos, mathlib.scale(direction, length * distance_factor))
+
+
 def build_ik(
     joints,
     name="limb",
@@ -52,6 +75,7 @@ def build_ik(
     orient_control="world",
     color_value=None,
     orient_end=True,
+    pole_axis=None,
 ):
     """Build an IK setup on a chain of 3 (or more) joints.
 
@@ -61,6 +85,9 @@ def build_ik(
     :param control_parent: parent of the IK and pole vector controls
     :param systems_parent: parent of the non animator nodes (hidden)
     :param orient_control: ``world`` or ``joint`` orientation for the IK control
+    :param pole_axis: ``None`` / ``"auto"`` places the pole in the bend
+        direction; ``"+x"``, ``"-z"``... places it along that local axis of
+        the middle joint (see :func:`pole_vector_position_axis`)
     :param orient_end: orient constrain the end joint to the IK control
         (turn off when a reverse foot drives the end joint)
     :returns: dict with ``ik_control``, ``pole_control``, ``handle``,
@@ -101,7 +128,10 @@ def build_ik(
     pole_ctl = None
     if pole_vector and solver == "ikRPsolver" and len(joints) >= 3:
         mid = joints[len(joints) // 2] if len(joints) > 3 else joints[1]
-        position = pole_vector_position(start, mid, end, pole_distance)
+        if pole_axis and pole_axis != "auto":
+            position = pole_vector_position_axis(start, mid, end, pole_axis, pole_distance)
+        else:
+            position = pole_vector_position(start, mid, end, pole_distance)
         pole_ctl = Control.create(name + "Pole", side=side, shape=pole_shape, size=size * 0.4,
                                   parent=control_parent, position=position, offsets=("zero", "space"),
                                   lock=("r", "s", "v"), color_value=color_value)

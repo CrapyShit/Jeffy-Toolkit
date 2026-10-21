@@ -99,6 +99,7 @@ def build_finger_ikfk(
     stretch=False,
     pole_distance=0.5,
     default_mode=0.0,
+    pole_axis=None,
 ):
     """IK/FK fingers for contact (hands on a table, a wall, a prop...).
 
@@ -112,6 +113,10 @@ def build_finger_ikfk(
         pairs. Each chain goes from the first joint the IK should bend (the
         proximal phalanx, not the metacarpal) to the tip end joint.
     :param hand: node the fingers follow (default: parent of each finger root)
+    :param pole_axis: where the pole vectors go: ``None`` / ``"auto"`` (the
+        bend direction) or a local axis of each finger's middle joint
+        (``"+x"``, ``"-y"``, ``"+z"``...) - the side the knuckle points to
+        when the finger curls
     :param attr_holder: optional control (e.g. the hand) receiving one
         ``<finger>IkFk`` attribute per finger that drives that finger's switch
     :returns: ``{finger: ikfk result}``
@@ -132,7 +137,8 @@ def build_finger_ikfk(
         result = ikfk.build_ikfk_limb(joints, name=finger, side=side, parent=parent, control_parent=control_parent,
                                       systems_parent=systems_parent, size=size, ik_shape="sphere",
                                       stretch=stretch, soft=False, pin=False, pole_distance=pole_distance,
-                                      orient_ik_control="joint", default_mode=default_mode, fk_skip_last=True)
+                                      orient_ik_control="joint", default_mode=default_mode, fk_skip_last=True,
+                                      pole_axis=pole_axis)
         ik_ctl = result["ik"]["ik_control"]
         if parent:
             if world is None:

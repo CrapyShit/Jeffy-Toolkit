@@ -580,6 +580,34 @@ def test_finger_ikfk(cmds, with_holder):
             assert cmds.attributeQuery(finger + "IkFk", node=holder, exists=True)
 
 
+@pytest.mark.parametrize("axis, expected", [("+z", (0.0, 0.0, 1.0)), ("-y", (0.0, -1.0, 0.0)),
+                                             ("+x", (1.0, 0.0, 0.0))])
+def test_finger_pole_axis(cmds, axis, expected):
+    from jeffy.core import mathlib
+    from jeffy.ui import actions
+
+    hand = cmds.createNode("joint", name="L_hand_JNT")
+    joints = make_chain(cmds, 4, name="index", step=1.0, parent=hand)
+    joints = [cmds.rename(j, j.replace("C_", "L_")) for j in joints]
+    # rotate the finger 90 degrees around Y: local axes no longer match world axes
+    cmds.setAttr(joints[0] + ".jointOrient", 0.0, 90.0, 0.0)
+    cmds.select(joints[0])
+    run(actions.build_finger_ikfk, 0.5, False, axis)
+
+    pole = [n for n in cmds.ls("L_index*Pole*_CTL")][0]
+    mid = [j for j in cmds.ls("L_index03_IK_JNT")][0]
+    world = cmds.xform(mid, query=True, worldSpace=True, matrix=True)
+    direction = mathlib.normalize(mathlib.axes(world)["xyz".index(axis[1])])
+    if axis[0] == "-":
+        direction = mathlib.scale(direction, -1.0)
+    offset = mathlib.sub(cmds.xform(pole, query=True, worldSpace=True, translation=True),
+                         cmds.xform(mid, query=True, worldSpace=True, translation=True))
+    assert mathlib.normalize(offset) == pytest.approx(direction, abs=1e-5)
+    # the chosen axis is local: with the 90 degree turn, local +z / +x are not world +z / +x
+    if axis in ("+z", "+x"):
+        assert mathlib.normalize(offset) != pytest.approx(expected, abs=1e-3)
+
+
 def test_dynamic_chain_drives_selection(cmds):
     from jeffy.ui import actions
 
