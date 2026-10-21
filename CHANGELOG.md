@@ -7,6 +7,27 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Face tab, rebuilt in rig building order** (antCGi style joint / ribbon
+  face rig plus blendshapes, with the Python API in `jeffy.rig.face`):
+  - *Face Ribbon From Edge Loop* (`face.ribbon`) for lips, brows and cheek
+    lines: a ribbon follows the loop with one skin joint per vertex. A few
+    controls under a Main control shape it, and their rotations roll or
+    twist the lip or brow.
+  - *Jaw* (`face.jaw`): jaw control; with the lip Main controls selected,
+    the lower lip, upper lip and lip corners follow it by
+    `lowerLipFollow` (1), `upperLipFollow` (0.1) and `cornerFollow` (0.5).
+  - *Partial Follow* (`face.follow`): any control follows a driver by an
+    animatable 0..1 `follow` (parent, orient or point), e.g. cheeks after
+    the lip corners or the nose after the upper lip.
+  - *Fleshy Eyes*: lid controls rotate with the eye around its centre
+    (`eyeFollow`).
+  - *Lip Seal*: `seal` / `sealHeight` on two lip curve rigs (the blink
+    network, now shared).
+  - *Connect Channel*: any control attribute range drives a blendshape
+    target through a clamped remap, with no set driven keys.
+  - The curve rig (eyelids, lips with a seal), blink, on-face controls and
+    sliders / face board stay; the tab now groups them as *Lips / Brows /
+    Lids*, *Jaw / Follow*, *On-Face Controls* and *Blendshapes*.
 - **Pole axis** for **IK/FK Fingers**: *auto* keeps placing the pole in the
   bend direction. `+x`, `-x`, `+y`, `-y`, `+z` or `-z` places it along that
   local axis of each finger's middle joint, so straight fingers and any
