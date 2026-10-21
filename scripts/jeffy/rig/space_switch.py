@@ -104,7 +104,9 @@ def _matrix_switch(driven, targets, enum, base):
         mm = cmds.createNode("multMatrix", name=naming.unique_name("%s%d_MM" % (base, i)), skipSelect=True)
         matrix.set_matrix_attr(mm + ".matrixIn[0]", offset)
         cmds.connectAttr(target + ".worldMatrix[0]", mm + ".matrixIn[1]")
-        cmds.connectAttr(driven + ".parentInverseMatrix[0]", mm + ".matrixIn[2]")
+        parent_inverse = matrix.parent_inverse_plug(driven)
+        if parent_inverse:
+            cmds.connectAttr(parent_inverse, mm + ".matrixIn[2]")
         cmds.connectAttr(mm + ".matrixSum", "%s.input[%d]" % (choice, i))
     cmds.connectAttr(choice + ".output", driven + ".offsetParentMatrix", force=True)
     return choice

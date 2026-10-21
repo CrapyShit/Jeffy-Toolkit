@@ -70,7 +70,7 @@ MENU = [
         ("IK/FK Limb", _act("build_ikfk")),
         ("Spline IK", _act("build_spline")),
         ("IK/FK Fingers (finger roots)", _act("build_finger_ikfk")),
-        ("Hybrid Spline IK/FK", _act("build_hybrid_spline")),
+        ("Spline IK/FK Switch", _act("build_spline_ikfk")),
         ("Ribbon", _act("build_ribbon")),
         ("Twist Joints", _act("build_twist")),
         ("Space Switch (control, then targets)", _act("add_space_switch")),

@@ -2,7 +2,7 @@
 
 import pytest
 
-from test_rig_builds import cmds, driver, run  # noqa: F401 - the cmds fixture
+from test_rig_builds import assert_no_offset_parent_cycles, cmds, driver, run  # noqa: F401 - the cmds fixture
 
 
 @pytest.fixture
@@ -97,6 +97,7 @@ def test_surface_control_cancels_double_transform(face):
     assert driver(face, result["pin"] + ".offsetParentMatrix")
     assert face.xform(result["joint"], query=True, worldSpace=True, translation=True) == pytest.approx(
         [1.0, 10.0, 2.0])
+    assert_no_offset_parent_cycles(face)
 
 
 @pytest.mark.parametrize("with_center", [False, True])

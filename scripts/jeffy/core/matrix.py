@@ -11,6 +11,23 @@ from jeffy.core import mathlib
 ROTATE_ORDERS = ("xyz", "yzx", "zxy", "xzy", "yxz", "zyx")
 
 
+def parent_inverse_plug(node):
+    """``worldInverseMatrix`` plug of ``node``'s parent (None at world).
+
+    Use it instead of ``node.parentInverseMatrix`` whenever the result drives
+    ``node.offsetParentMatrix``: Maya treats a node's own parent matrices
+    feeding its offsetParentMatrix as a cycle.
+    """
+    parent = cmds.listRelatives(node, parent=True, fullPath=True)
+    return parent[0] + ".worldInverseMatrix[0]" if parent else None
+
+
+def parent_world_plug(node):
+    """``worldMatrix`` plug of ``node``'s parent (None at world)."""
+    parent = cmds.listRelatives(node, parent=True, fullPath=True)
+    return parent[0] + ".worldMatrix[0]" if parent else None
+
+
 def get_world_matrix(node):
     return cmds.xform(node, query=True, worldSpace=True, matrix=True)
 

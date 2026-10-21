@@ -240,45 +240,84 @@ def test_spline_ik(geometry):
     assert driver(cmds, chain[2] + ".translateX")
 
 
-@pytest.mark.parametrize("per_joint", [True, False])
-def test_hybrid_spline(geometry, per_joint):
+def test_spline_ikfk(geometry):
     cmds = geometry
     from jeffy.ui import actions
 
     root = cmds.createNode("joint", name="C_hips_JNT")
     chain = make_chain(cmds, 6, name="spine", parent=root)
     cmds.select(chain[0], chain[-1])
-    run(actions.build_hybrid_spline, 3, True, True, 1.0, per_joint)
+    run(actions.build_spline_ikfk, 3)
     assert len(cmds.ls(type="ikHandle")) == 1
 
-    ik_controls = sorted(cmds.ls("*splineIK0*_CTL") or cmds.ls("*IK0*_CTL"))
-    assert len(ik_controls) == 3, ik_controls
-    settings = ik_controls[-1]
-    assert cmds.attributeQuery("ikBlend", node=settings, exists=True)
-    assert cmds.attributeQuery("ik01", node=settings, exists=True) == per_joint
+    settings = [n for n in cmds.ls("*Settings*_CTL") if cmds.attributeQuery("ikFk", node=n, exists=True)]
+    assert len(settings) == 1
 
-    # every curve point is driven, controls rotate their tangent points
+    # every curve point is driven; every IK control (middle too) owns tangents
+    ik_controls = sorted(n for n in cmds.ls("*IK0*_CTL"))
+    assert len(ik_controls) == 3, ik_controls
     curve = [c for c in cmds.ls(type="nurbsCurve") if "IK" not in c and "Guide" not in c]
     for index in range(7):
         assert any(driver(cmds, "%s.controlPoints[%d]" % (shape, index)) for shape in curve), index
+    middle_tangents = cmds.listRelatives(ik_controls[1], allDescendents=True, type="transform") or []
+    assert len([t for t in middle_tangents if t.endswith("_LOC")]) == 2, middle_tangents
     for ctl in ik_controls:
         assert cmds.attributeQuery("tangentLength", node=ctl, exists=True)
 
-    # each bind joint follows its own FK control, FK controls follow the IK chain
-    fk_controls = []
-    for joint in chain:
-        targets = constraint_targets(cmds, joint)
-        assert len(targets) == 1 and targets[0].endswith("FK_CTL"), targets
-        fk_controls.append(targets[0])
-        zero = cmds.listRelatives(cmds.listRelatives(targets[0], parent=True)[0], parent=True)[0]
-        assert driver(cmds, zero + ".offsetParentMatrix"), zero
-        assert driver(cmds, joint + ".scale")
-    # FK controls are a hierarchy, so rotating one moves everything below
-    for parent_ctl, child_ctl in zip(fk_controls, fk_controls[1:]):
-        assert child_ctl in (cmds.listRelatives(parent_ctl, allDescendents=True) or [])
-    # the middle IK control twists the FK layer
-    assert any(driver(cmds, cmds.listRelatives(cmds.listRelatives(c, parent=True)[0], parent=True)[0]
-                      + ".rotateX") for c in fk_controls[1:])
+    # bind joints blend between the FK and IK chains; FK controls drive the FK chain
+    for bind in chain:
+        targets = constraint_targets(cmds, bind)
+        assert len(targets) == 2 and "_FK" in targets[0] and "_IK" in targets[1], targets
+        assert driver(cmds, bind + ".scale")
+    fk_controls = cmds.ls("*FK*_CTL")
+    assert len(fk_controls) == len(chain), fk_controls
+
+    assert_no_offset_parent_cycles(cmds)
+
+
+def assert_no_offset_parent_cycles(cmds, depth=6):
+    """No node's offsetParentMatrix may be computed from its own parent matrices
+    (Maya reports a cycle, e.g. ``Cycle on 'pelvisFK_BM.outputMatrix'``)."""
+    for node in cmds.ls("*"):
+        if not cmds.objExists(node + ".offsetParentMatrix"):
+            continue
+        frontier = [node + ".offsetParentMatrix"]
+        for _level in range(depth):
+            upstream = []
+            for plug in frontier:
+                target = plug if "." in plug and plug.split(".")[0] == node else plug.split(".")[0]
+                upstream.extend(cmds.listConnections(target, source=True, destination=False, plugs=True) or [])
+            for plug in upstream:
+                owner, attr = plug.split(".", 1)
+                assert not (owner == node and attr.startswith(("parentInverseMatrix", "parentMatrix"))), \
+                    "%s.offsetParentMatrix depends on its own %s" % (node, attr)
+            frontier = [p for p in upstream if p.split(".")[0] != node]
+
+
+def test_cycle_checker_catches_own_parent_matrix(cmds):
+    """The pattern behind ``Cycle on 'pelvisFK_BM.outputMatrix'``."""
+    group = cmds.createNode("transform", name="grp")
+    zero = cmds.createNode("transform", name="zero", parent=group)
+    mm = cmds.createNode("multMatrix", name="mm")
+    pick = cmds.createNode("pickMatrix", name="pm")
+    cmds.connectAttr(zero + ".parentInverseMatrix[0]", mm + ".matrixIn[1]")
+    cmds.connectAttr(mm + ".matrixSum", pick + ".inputMatrix")
+    cmds.connectAttr(pick + ".outputMatrix", zero + ".offsetParentMatrix")
+    with pytest.raises(AssertionError):
+        assert_no_offset_parent_cycles(cmds)
+
+
+def test_matrix_tools_have_no_offset_parent_cycles(cmds):
+    from jeffy.rig import matrix_constraints, space_switch
+
+    parent = cmds.createNode("transform", name="parent_GRP")
+    driven = cmds.createNode("transform", name="driven", parent=parent)
+    zero = cmds.createNode("transform", name="ctl_ZRO", parent=parent)
+    ctl = cmds.createNode("transform", name="ctl_CTL", parent=zero)
+    targets = [cmds.createNode("transform", name=n) for n in ("a_GRP", "b_GRP")]
+    matrix_constraints.matrix_constraint(targets[0], driven)
+    space_switch.create(ctl, [("a", targets[0]), ("b", targets[1])], driven=zero, method="matrix")
+    assert_no_offset_parent_cycles(cmds)
 
 
 def test_ribbon(geometry):
@@ -454,3 +493,12 @@ def test_failed_tool_undoes_its_partial_build(cmds):
     assert "undo: Crashing Tool" in cmds.log
     assert cmds.undo_stack == ["user work"]
     assert any("partial build was undone" in line for line in cmds.log)
+
+
+@pytest.mark.parametrize("api, expected", [(20240000, "multDoubleLinear"), (20260000, "multDL")])
+def test_renamed_node_types(cmds, monkeypatch, api, expected):
+    from jeffy.core import nodes
+
+    monkeypatch.setattr(cmds, "about", lambda apiVersion=False, **_k: api if apiVersion else str(api // 10000))
+    assert nodes.node_type("multDoubleLinear") == expected
+    assert nodes.node_type("multiplyDivide") == "multiplyDivide"

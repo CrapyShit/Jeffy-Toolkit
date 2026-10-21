@@ -112,7 +112,9 @@ def attach_to_geometry(node, geo, method="follicle", u=None, v=None, maintain_of
         offset = mathlib.mult(world, mathlib.inverse(pin_matrix))
         matrix.set_matrix_attr(mm + ".matrixIn[0]", offset)
     cmds.connectAttr(outputs[0], mm + ".matrixIn[1]")
-    cmds.connectAttr(node + ".parentInverseMatrix[0]", mm + ".matrixIn[2]")
+    parent_inverse = matrix.parent_inverse_plug(node)
+    if parent_inverse:
+        cmds.connectAttr(parent_inverse, mm + ".matrixIn[2]")
     transform.reset(node)
     cmds.connectAttr(mm + ".matrixSum", node + ".offsetParentMatrix", force=True)
     return pin

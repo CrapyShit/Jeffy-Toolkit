@@ -26,9 +26,24 @@ def _name(name, default):
     return naming.unique_name("%s_%s" % (default, naming.suffix("utility")))
 
 
-def create(node_type, name=None, **attrs):
+#: node types renamed in Maya 2026 (the old names still work but warn)
+RENAMED_2026 = {"multDoubleLinear": "multDL", "addDoubleLinear": "addDL"}
+
+
+def node_type(name):
+    """Current name of a utility node type for the running Maya version."""
+    if name in RENAMED_2026:
+        from jeffy.core import plugins
+
+        if plugins.maya_version() >= 2026:
+            return RENAMED_2026[name]
+    return name
+
+
+def create(node_type_name, name=None, **attrs):
     """Create a utility node and set/connect attributes from keyword args."""
-    node = cmds.createNode(node_type, name=_name(name, node_type), skipSelect=True)
+    node_type_name = node_type(node_type_name)
+    node = cmds.createNode(node_type_name, name=_name(name, node_type_name), skipSelect=True)
     for attr, value in attrs.items():
         attributes.set_or_connect(value, "%s.%s" % (node, attr))
     return node
