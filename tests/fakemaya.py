@@ -1107,6 +1107,30 @@ class FakeCmds(object):
         base.data.setdefault("deformers", []).append(node.id)
         return [node.name]
 
+    def wire(self, *args, **kwargs):
+        names = []
+        for item in args:
+            names.extend([item] if isinstance(item, str) else list(item))
+        driver = kwargs.get("wire") or kwargs.get("w")
+        if not driver:
+            raise MayaError("wire: no wire curve given")
+        driver_shape = self._deformed_shape(driver, "wire")
+        shapes = [self._deformed_shape(n, "wire") for n in names]
+        node = self._create("wire", kwargs.get("name") or kwargs.get("n") or "wire1")
+        base = self._node(self.duplicate(driver, name=driver_shape.parent.name + "BaseWire")[0], "wire")
+        base_shape = [c for c in base.children if c.is_shape][0]
+        self.connections[(node.id, "deformedWire[0]")] = (driver_shape.id, "worldSpace[0]")
+        self.connections[(node.id, "baseWire[0]")] = (base_shape.id, "worldSpace[0]")
+        for shape in shapes:
+            shape.data.setdefault("deformers", []).append(node.id)
+        return [node.name]
+
+    def transformLimits(self, node, **kwargs):
+        target = self._node(node, "transformLimits")
+        if not target.is_transform:
+            raise MayaError("transformLimits: %s is not a transform" % node)
+        target.data.setdefault("limits", {}).update(kwargs)
+
     def nonLinear(self, *args, **kwargs):
         names = []
         for item in args:

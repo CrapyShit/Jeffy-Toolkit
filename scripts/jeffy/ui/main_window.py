@@ -15,6 +15,7 @@ PAGES = (
     ("jeffy.ui.pages.joints_page", "JointsPage"),
     ("jeffy.ui.pages.rigging_page", "RiggingPage"),
     ("jeffy.ui.pages.deform_page", "DeformPage"),
+    ("jeffy.ui.pages.face_page", "FacePage"),
     ("jeffy.ui.pages.attributes_page", "AttributesPage"),
     ("jeffy.ui.pages.naming_page", "NamingPage"),
     ("jeffy.ui.pages.autorig_page", "AutoRigPage"),

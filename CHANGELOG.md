@@ -7,6 +7,24 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Face tab** (and a *Face* menu), with the Python API in `jeffy.rig.face`:
+  - *Create Slider*: a handle limited to its frame (vertical, horizontal or
+    2D square) with 0..1 `up` / `down` / `right` / `left` outputs on the
+    control. *Connect* drives a blendshape target from one direction.
+  - *Face Board From Blendshape*: one labelled slider per target, already
+    connected. Pairs such as `browUp` / `browDown` share one two-sided
+    slider; targets that are already driven are skipped.
+  - *On-Face Controls*: select vertices (or existing joints), then the face
+    mesh. Each control rides on the mesh (uvPin or follicle) and drives a
+    joint. An inverse group cancels the double transform, so the control
+    stays under the cursor once the mesh is skinned to the joints.
+  - *Curve Rig From Edge Loop* for lips, brows, eyelids and folds: one joint
+    per vertex follows a curve, deformed by a wire from a few controls under
+    a main control. With *Aim from center* the joints rotate around the eye
+    joint so lids slide over the eyeball.
+  - *Eyelid Blink*: `blink` and `blinkHeight` on top of an upper and a lower
+    lid curve rig. The lids meet on a line that follows the animated lid
+    controls.
 - **Hybrid Spline IK/FK** (Rigging tab > Spline IK, menu *Rigging*, or
   `jeffy.rig.spline.build_hybrid_spline`): a spline IK with an FK control on
   every joint layered on top. Rotating an FK control bends everything below
