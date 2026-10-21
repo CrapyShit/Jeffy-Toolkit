@@ -134,9 +134,11 @@ class RiggingPage(w.Page):
             w.row(self.foot_mirror, w.button("Reverse Foot", lambda: actions.build_reverse_foot_auto(
                 self.foot_mirror.isChecked()),
                 "Select the leg IK control, then the foot joints (ankle, ball, toe [, toe end] - or just the "
-                "ankle). Builds the reverse chain (heel behind the ankle, toe tip on the ground), the bank pivots "
-                "and the roll / bank / twist / toe tap attributes. Optional after the joints: a heel locator, or "
-                "heel, inner and outer locators. Builds the other side too when L_/R_ names match.")),
+                "ankle). The leg IK handle following the control (parented, constrained or connected) is found "
+                "and moved under the foot. Builds the reverse chain (heel behind the ankle, toe tip on the "
+                "ground), the bank pivots and the roll / bank / twist / toe tap attributes. Optional after the "
+                "joints: a heel locator, or heel, inner and outer locators. Builds the other side too when "
+                "L_/R_ names match.")),
             w.grid([
                 w.button("Reverse Foot (locators)", actions.build_reverse_foot,
                          "Select in order: IK control, ankle, ball, toe (IK joints), heel locator, inner "

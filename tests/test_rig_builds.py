@@ -282,6 +282,53 @@ def test_reverse_foot_one_click(cmds, select):
     assert_no_offset_parent_cycles(cmds)
 
 
+@pytest.mark.parametrize("link", ["parent", "constraint", "connection"])
+def test_reverse_foot_moves_a_hand_made_ik_handle(cmds, link):
+    """Leg IK made by hand: the handle follows the control in some way."""
+    from jeffy.ui import actions
+
+    joints, _none = make_leg(cmds, "L", 2.0, with_reverse=False)
+    ctl = cmds.createNode("transform", name="L_legIK_CTL")
+    cmds.xform(ctl, worldSpace=True, translation=cmds.xform(joints[2], query=True, worldSpace=True,
+                                                            translation=True))
+    pole = cmds.createNode("transform", name="L_legPole_CTL")
+    cmds.xform(pole, worldSpace=True, translation=(2.0, 5.0, 5.0))
+    handle = cmds.ikHandle(startJoint=joints[0], endEffector=joints[2], name="L_leg_IKH")[0]
+    cmds.poleVectorConstraint(pole, handle)
+    if link == "parent":
+        handle = cmds.parent(handle, ctl)[0]
+    elif link == "constraint":
+        cmds.pointConstraint(ctl, handle)
+        cmds.orientConstraint(ctl, joints[2], maintainOffset=True)  # ankle follows the control
+    else:
+        decompose = cmds.createNode("decomposeMatrix", name="legIK_DM")
+        cmds.connectAttr(ctl + ".worldMatrix[0]", decompose + ".inputMatrix")
+        cmds.connectAttr(decompose + ".outputTranslate", handle + ".translate")
+
+    cmds.select(ctl, joints[2])
+    run(actions.build_reverse_foot_auto, False)
+
+    handle = [h for h in cmds.ls(type="ikHandle") if "leg_IKH" in h][0]
+    ankle_rev = [j for j in cmds.ls("L_*Rev*_JNT") if "Ankle" in j][0]
+    assert cmds.listRelatives(handle, parent=True)[0] == ankle_rev
+    assert not cmds.listRelatives(handle, children=True, type="pointConstraint")
+    assert cmds.listRelatives(handle, children=True, type="poleVectorConstraint"), "pole vector kept"
+    assert not driver(cmds, handle + ".translate")
+    # the ankle no longer follows the control directly: the foot rotates it
+    assert not cmds.listRelatives(joints[2], children=True, type="orientConstraint")
+    assert [h for h in cmds.ls(type="ikHandle") if "Ball" in h], "ankle -> ball handle orients the ankle"
+
+
+def test_reverse_foot_without_ik_handle_raises(cmds):
+    from jeffy.rig import foot
+
+    joints, _none = make_leg(cmds, "L", 2.0, with_reverse=False)
+    ctl = cmds.createNode("transform", name="L_legIK_CTL")
+    with pytest.raises(ValueError, match="No IK handle follows"):
+        foot.build_reverse_foot_auto(ctl, [joints[2]], name="legFoot", side="L")
+    assert not cmds.ls("*Rev*_JNT"), "nothing is built when the IK handle is missing"
+
+
 def test_ik_counterpart_prefers_the_ik_chain(cmds):
     from jeffy.rig import foot
 
