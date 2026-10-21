@@ -1745,3 +1745,128 @@ def run_checks():
     print(text)
     decorators.message("Rig check finished - see the Script Editor")
     return text
+
+
+# ---------------------------------------------------------------------------
+# Face
+# ---------------------------------------------------------------------------
+def _side_from_x(x, tolerance=1e-3):
+    if x > tolerance:
+        return "L"
+    if x < -tolerance:
+        return "R"
+    return "C"
+
+
+def _find_blendshape(node):
+    from jeffy.deformers import blendshape
+
+    if cmds.nodeType(node) == "blendShape":
+        return node
+    found = blendshape.find_blendshapes(node)
+    if not found:
+        raise ToolError("%s has no blendShape" % node)
+    return found[0]
+
+
+@tool("Face Slider")
+def create_face_slider(name="slider", mode="vertical", two_sided=True, size=1.0):
+    from jeffy.core import transform
+    from jeffy.rig.face import sliders
+
+    selection = cmds.ls(selection=True) or []
+    position = transform.get_position(selection[0]) if selection else None
+    name = naming.strip_namespace(name.strip() or "slider")
+    result = sliders.create_slider(sliders._safe(name), mode=mode, two_sided=two_sided, size=_scaled(size),
+                                   position=position, label=name)
+    cmds.select(result["control"].node)
+
+
+@tool("Face Board From Blendshape")
+def face_board_from_blendshape(size=1.0, columns=6):
+    from jeffy.rig.face import sliders
+
+    blendshape_node = _find_blendshape(_selection(1)[0])
+    result = sliders.sliders_from_blendshape(blendshape_node, name=naming.short_name(blendshape_node),
+                                             size=_scaled(size), columns=columns)
+    decorators.message("%d slider(s) connected to %s" % (len(result["sliders"]), blendshape_node))
+    cmds.select(result["group"])
+
+
+@tool("Connect Slider")
+def connect_face_slider(direction="up", target=""):
+    from jeffy.rig.face import sliders
+
+    selection = _selection(2, ordered=True)
+    if not target:
+        raise ToolError("Type the blendshape target name")
+    plug = sliders.connect(selection[0], direction, _find_blendshape(selection[1]), target.strip())
+    decorators.message("%s -> %s" % (plug, target))
+
+
+@tool("On-Face Controls")
+def build_surface_controls(name="face", size=0.3, method="uvPin"):
+    from jeffy.core import transform
+    from jeffy.rig.face import surface_controls
+
+    selection = _selection(2, ordered=True)
+    mesh = selection[-1]
+    if "." in mesh:
+        raise ToolError("Select vertices or joints / locators first, then the face mesh last")
+    items = cmds.ls(selection[:-1], flatten=True) or []
+    name = name.strip() or "face"
+    results = []
+    for i, item in enumerate(items):
+        joint = item if "." not in item and cmds.nodeType(item) == "joint" else None
+        position = transform.get_position(item)
+        side = _side_from_x(position[0])
+        label = (naming.parse(item)["name"] if joint else None) or "%s%02d" % (name, i + 1)
+        results.append(surface_controls.build_surface_control(mesh, position, name=label, side=side, joint=joint,
+                                                              size=_scaled(size), method=method))
+    decorators.message("%d on-face control(s) - skin the mesh to their joints" % len(results))
+    cmds.select([r["control"].node for r in results])
+
+
+@tool("Face Curve Rig")
+def build_face_curve_rig(name="lip", controls=5, size=0.3, aim_from_center=False):
+    from jeffy.core import mathlib
+    from jeffy.rig import common
+    from jeffy.rig.face import curve_rig
+
+    selection = cmds.ls(selection=True, flatten=True) or []
+    edges = [s for s in selection if ".e[" in s]
+    others = [s for s in selection if "." not in s]
+    if len(edges) < 2:
+        raise ToolError("Select an edge loop (and optionally the head joint / eye joint)")
+    name = (name.strip() or "lip").replace(" ", "_")
+    points = curve_rig.ordered_points(edges)
+    side = _side_from_x(mathlib.centroid(points)[0])
+    center = None
+    follow = others[0] if others else None
+    if aim_from_center:
+        if not others:
+            raise ToolError("Aim from center: also select the eye joint (or a locator at the eye centre)")
+        center = others[0]
+        follow = (cmds.listRelatives(center, parent=True) or [None])[0]
+    control_parent = common.follow_group(naming.compose(name + "Follow", side, "group"), follow) \
+        if follow else None
+    result = curve_rig.build_curve_rig(points=points, name=name, side=side, num_controls=controls, center=center,
+                                       control_parent=control_parent,
+                                       joint_parent=follow if follow and cmds.nodeType(follow) == "joint" else None,
+                                       size=_scaled(size))
+    decorators.message("%d joints - skin the mesh to them" % len(result["joints"]))
+    cmds.select(result["main"].node)
+
+
+@tool("Eyelid Blink")
+def build_eyelid_blink(height=0.2):
+    from jeffy.rig.face import blink
+
+    selection = _selection(2, ordered=True)
+    holder = selection[2] if len(selection) > 2 else None
+    side = naming.parse(selection[0])["side"]
+    result = blink.build_blink(selection[0], selection[1], attr_holder=holder,
+                               name=(naming.parse(selection[0])["name"] or "lid").replace("Main", "") + "Blink",
+                               side=side, height=height)
+    cmds.select(holder or selection[0])
+    return result

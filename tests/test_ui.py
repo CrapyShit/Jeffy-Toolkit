@@ -48,7 +48,7 @@ def test_window_builds_offscreen():
 
     window = main_window.JeffyToolkitWindow()
     titles = [window.tabs.tabText(i) for i in range(window.tabs.count())]
-    assert titles == ["Controls", "Joints", "Rigging", "Deform", "Attributes", "Naming", "Auto-Rig", "Animate",
+    assert titles == ["Controls", "Joints", "Rigging", "Deform", "Face", "Attributes", "Naming", "Auto-Rig", "Animate",
                       "Utilities"]
     for index in range(window.tabs.count()):
         page = window.tabs.widget(index)

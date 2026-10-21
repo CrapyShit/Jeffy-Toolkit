@@ -89,6 +89,13 @@ MENU = [
         ("Ribbon Crease Fix", _act("add_flexible_crease_fix")),
         ("Reverse Foot (IK ctl, ankle, ball, toe, heel, in, out)", _act("build_flexible_foot")),
     ]),
+    ("Face", [
+        ("Slider", _act("create_face_slider")),
+        ("Face Board From Blendshape (mesh)", _act("face_board_from_blendshape")),
+        ("On-Face Controls (vertices, then mesh)", _act("build_surface_controls")),
+        ("Curve Rig From Edge Loop", _act("build_face_curve_rig")),
+        ("Eyelid Blink (upper main, lower main)", _act("build_eyelid_blink")),
+    ]),
     ("Skin", [
         ("Bind Skin", _act("bind_skin")),
         ("Export Weights...", _act("export_skin_weights")),
