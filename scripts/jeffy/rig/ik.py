@@ -114,8 +114,8 @@ def build_ik(
     end_ref = common.create_locator(naming.compose(base + "End", side, "locator"), parent=ik_ctl.node, match=end)
 
     handle, effector = cmds.ikHandle(startJoint=start, endEffector=end, solver=solver,
-                                     name=naming.compose(base, side, "ik_handle"))
-    cmds.rename(effector, naming.compose(base, side, "effector"))
+                                     name=naming.unique_name(naming.compose(base, side, "ik_handle")))
+    cmds.rename(effector, naming.unique_name(naming.compose(base, side, "effector")))
     handle = cmds.parent(handle, group)[0]
     if orient_end:
         cmds.orientConstraint(end_ref, end, maintainOffset=True)

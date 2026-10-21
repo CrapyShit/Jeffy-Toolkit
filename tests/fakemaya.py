@@ -309,9 +309,24 @@ class FakeCmds(object):
         return "%s%d" % (stem, index)
 
     def _create(self, node_type, name=None, parent=None):
+        """Like Maya: a DAG node name only has to be unique among its siblings
+        (so two ``grpA|ctl`` and ``grpB|ctl`` can exist, and short names can
+        become ambiguous); dependency nodes are unique in the whole scene."""
         self.mutations += 1
-        name = self._unique(name or (node_type + "1"))
+        name = name or (node_type + "1")
         node = Node(self, name, node_type, parent)
+        if node.dag:
+            siblings = parent.children if parent is not None else [n for n in self.nodes if n.parent is None and n.dag]
+            taken = set(n.name for n in siblings)
+            if name in taken:
+                stem = re.sub(r"\d+$", "", name)
+                index = 1
+                while "%s%d" % (stem, index) in taken:
+                    index += 1
+                name = "%s%d" % (stem, index)
+        else:
+            name = self._unique(name)
+        node.name = name
         if parent is not None:
             parent.children.append(node)
         self.nodes.append(node)
@@ -979,8 +994,9 @@ class FakeCmds(object):
             ancestor = ancestor.parent
         if ancestor is None:
             raise MayaError("ikHandle: %s is not below %s" % (endEffector, startJoint))
-        effector = self._create("ikEffector", "effector1", end.parent)
-        handle = self._create("ikHandle", name or "ikHandle1")
+        # default names (effector1, ikHandle1...) are numbered across the scene
+        effector = self._create("ikEffector", self._unique("effector1"), end.parent)
+        handle = self._create("ikHandle", name or self._unique("ikHandle1"))
         handle.data.update(start=start.id, end=end.id, solver=solver, effector=effector.id)
         handle.values.update({"twist": 0.0, "poleVectorX": 0.0, "poleVectorY": 0.0, "poleVectorZ": 0.0,
                               "dTwistControlEnable": False, "dWorldUpType": 0, "dForwardAxis": 0,
@@ -996,7 +1012,8 @@ class FakeCmds(object):
             if joint is start:
                 break
             joint = joint.parent
-        return [self._display(handle), self._display(effector)]
+        # Maya returns the bare names here, even when they are not unique
+        return [handle.name, effector.name]
 
     # ------------------------------------------------------------------
     # Misc commands

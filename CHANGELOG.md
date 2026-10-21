@@ -85,6 +85,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   still take `size` as given.
 
 ### Fixed
+- **IK/FK Fingers** failed with `More than one object matches name:
+  L_metacarpIK_IKH` when two finger roots only differ by their number
+  (`L_metacarp01`, `L_metacarp02`): both fingers were called `metacarp`.
+  Such fingers now keep their number (`metacarp01`, `metacarp02`). IK
+  handles and effectors of every tool (IK, spline, foot, dynamics) now get
+  scene-unique names, so the same base name used twice no longer breaks a
+  build. The test scene now names nodes like Maya (unique among siblings
+  only, bare names from `ikHandle`), which reproduces this error.
 - **Reverse Foot** did not move a leg IK handle made by hand (it only knew
   the `...End` locator of the toolkit's IK tools). It now finds the IK
   handle that follows the IK control - parented under it, point / parent

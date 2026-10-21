@@ -52,10 +52,10 @@ def _foot_handles(ankle, ball, toe, ball_parent, toe_parent, name, side):
     ball_handle = None
     if not cmds.listRelatives(ankle, children=True, type="orientConstraint"):
         ball_handle = cmds.ikHandle(startJoint=ankle, endEffector=ball, solver="ikSCsolver",
-                                    name=naming.compose(name + "Ball", side, "ik_handle"))[0]
+                                    name=naming.unique_name(naming.compose(name + "Ball", side, "ik_handle")))[0]
         ball_handle = cmds.parent(ball_handle, ball_parent)[0]
     toe_handle = cmds.ikHandle(startJoint=ball, endEffector=toe, solver="ikSCsolver",
-                               name=naming.compose(name + "Toe", side, "ik_handle"))[0]
+                               name=naming.unique_name(naming.compose(name + "Toe", side, "ik_handle")))[0]
     toe_handle = cmds.parent(toe_handle, toe_parent)[0]
     common.hide([h for h in (ball_handle, toe_handle) if h])
     return ball_handle, toe_handle

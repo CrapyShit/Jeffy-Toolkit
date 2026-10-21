@@ -107,8 +107,8 @@ def create_dynamic_chain(driver_joints, bind_joints=None, name="dynamic", side=N
     handle, effector = cmds.ikHandle(startJoint=dyn_joints[0], endEffector=dyn_joints[-1],
                                      solver="ikSplineSolver", curve=out_curve, createCurve=False,
                                      parentCurve=False, simplifyCurve=False, rootOnCurve=True,
-                                     name=naming.compose(name + "Dyn", side, "ik_handle"))
-    cmds.rename(effector, naming.compose(name + "Dyn", side, "effector"))
+                                     name=naming.unique_name(naming.compose(name + "Dyn", side, "ik_handle")))
+    cmds.rename(effector, naming.unique_name(naming.compose(name + "Dyn", side, "effector")))
     cmds.parent(handle, group)
     # the root follows the simulated curve (rootOnCurve), whose base is locked
     # to the driver chain - a constraint here would block the spline solver
