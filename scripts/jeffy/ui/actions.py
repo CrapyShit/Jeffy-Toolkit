@@ -526,6 +526,19 @@ def build_spline(controls=3, stretch=True, volume=True, size=1.0):
     cmds.select([c.node for c in result["controls"]])
 
 
+@tool("Hybrid Spline IK/FK")
+def build_hybrid_spline(controls=3, stretch=True, volume=True, size=1.0, per_joint=True):
+    size = _scaled(size)
+    from jeffy.rig import spline
+
+    chain = _chain_from_selection(3)
+    name, side = _name_side(chain[0], "spline")
+    result = spline.build_hybrid_spline(chain, name=name, side=side, num_controls=controls, stretch=stretch,
+                                        volume=volume, size=size, per_joint_switch=per_joint,
+                                        control_parent=_follow_parent(chain[0], "spline"))
+    cmds.select([c.node for c in result["ik_controls"]])
+
+
 @tool("Ribbon")
 def build_ribbon(joints=5, controls=3, width=None, name="ribbon", attach=True):
     from jeffy.rig import ribbon

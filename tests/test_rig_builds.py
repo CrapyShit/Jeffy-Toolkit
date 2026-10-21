@@ -240,6 +240,47 @@ def test_spline_ik(geometry):
     assert driver(cmds, chain[2] + ".translateX")
 
 
+@pytest.mark.parametrize("per_joint", [True, False])
+def test_hybrid_spline(geometry, per_joint):
+    cmds = geometry
+    from jeffy.ui import actions
+
+    root = cmds.createNode("joint", name="C_hips_JNT")
+    chain = make_chain(cmds, 6, name="spine", parent=root)
+    cmds.select(chain[0], chain[-1])
+    run(actions.build_hybrid_spline, 3, True, True, 1.0, per_joint)
+    assert len(cmds.ls(type="ikHandle")) == 1
+
+    ik_controls = sorted(cmds.ls("*splineIK0*_CTL") or cmds.ls("*IK0*_CTL"))
+    assert len(ik_controls) == 3, ik_controls
+    settings = ik_controls[-1]
+    assert cmds.attributeQuery("ikBlend", node=settings, exists=True)
+    assert cmds.attributeQuery("ik01", node=settings, exists=True) == per_joint
+
+    # every curve point is driven, controls rotate their tangent points
+    curve = [c for c in cmds.ls(type="nurbsCurve") if "IK" not in c and "Guide" not in c]
+    for index in range(7):
+        assert any(driver(cmds, "%s.controlPoints[%d]" % (shape, index)) for shape in curve), index
+    for ctl in ik_controls:
+        assert cmds.attributeQuery("tangentLength", node=ctl, exists=True)
+
+    # each bind joint follows its own FK control, FK controls follow the IK chain
+    fk_controls = []
+    for joint in chain:
+        targets = constraint_targets(cmds, joint)
+        assert len(targets) == 1 and targets[0].endswith("FK_CTL"), targets
+        fk_controls.append(targets[0])
+        zero = cmds.listRelatives(cmds.listRelatives(targets[0], parent=True)[0], parent=True)[0]
+        assert driver(cmds, zero + ".offsetParentMatrix"), zero
+        assert driver(cmds, joint + ".scale")
+    # FK controls are a hierarchy, so rotating one moves everything below
+    for parent_ctl, child_ctl in zip(fk_controls, fk_controls[1:]):
+        assert child_ctl in (cmds.listRelatives(parent_ctl, allDescendents=True) or [])
+    # the middle IK control twists the FK layer
+    assert any(driver(cmds, cmds.listRelatives(cmds.listRelatives(c, parent=True)[0], parent=True)[0]
+                      + ".rotateX") for c in fk_controls[1:])
+
+
 def test_ribbon(geometry):
     cmds = geometry
     from jeffy.ui import actions
