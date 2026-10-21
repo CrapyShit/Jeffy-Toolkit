@@ -135,7 +135,13 @@ class RiggingPage(w.Page):
                      "Select in order: IK control, ankle, ball, toe (IK joints), heel locator, inner "
                      "locator, outer locator. The IK end target is found automatically (or select it second)."),
             w.button("Finger Controls", lambda: actions.build_fingers(self.size_box.value()),
-                     "Select finger root joints (and optionally the control receiving the attributes)"))
+                     "Select finger root joints (and optionally the control receiving the attributes)"),
+            w.button("IK/FK Fingers (contact)", lambda: actions.build_finger_ikfk(self.size_box.value(),
+                                                                                  self.stretch.isChecked()),
+                     "Select finger root joints (the first joint that bends, not the metacarpal), optionally "
+                     "then the hand control. Each finger gets FK, an IK to the tip and an ikFk switch. Set the "
+                     "IK control's 'space' to world to keep the tip on a contact point while the hand moves. "
+                     "Fingers should be slightly bent in the bind pose so the IK knows which way to bend."))
         self.flex_tips = w.check("Tip controls", True)
         foot_advanced = w.column(
             w.label("Flexible Rig (antCGi): node based foot (Roll, Bank, HeelTwist, ToeTwist, ToeTap + "
