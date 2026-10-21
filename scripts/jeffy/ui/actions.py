@@ -784,7 +784,7 @@ def build_fingers(size=0.5):
 
 
 @tool("IK/FK Fingers")
-def build_finger_ikfk(size=0.5, stretch=False):
+def build_finger_ikfk(size=0.5, stretch=False, pole_axis="auto"):
     size = _scaled(size)
     from jeffy.core import dag
     from jeffy.rig import fingers
@@ -802,6 +802,7 @@ def build_finger_ikfk(size=0.5, stretch=False):
     chains = [(finger_name(r), [naming.short_name(j) for j in dag.get_chain(r)]) for r in roots]
     result = fingers.build_finger_ikfk(chains, side=naming.side_from_name(roots[0]),
                                        attr_holder=others[0] if others else None, size=size, stretch=stretch,
+                                       pole_axis=pole_axis,
                                        control_parent=_follow_parent(roots[0], "fingers"))
     cmds.select([r["ik"]["ik_control"].node for r in result.values()])
 

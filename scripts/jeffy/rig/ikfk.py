@@ -46,6 +46,7 @@ def build_ikfk_limb(
     orient_end=True,
     ik_count=None,
     fk_skip_last=False,
+    pole_axis=None,
 ):
     """Build a complete IK/FK limb on ``joints`` (bind chain, root -> end).
 
@@ -55,6 +56,8 @@ def build_ikfk_limb(
         joints (e.g. ball/toe of a leg) must be driven by another system such
         as :func:`jeffy.rig.foot.build_reverse_foot`
     :param fk_skip_last: no FK control on the last joint (end/tip joints)
+    :param pole_axis: local axis of the middle joint for the pole vector
+        (``"+z"``...); default: the bend direction
     :returns: dict with ``settings``, ``fk``, ``ik``, ``fk_joints``,
         ``ik_joints``, ``switch`` and ``group``
     """
@@ -87,7 +90,7 @@ def build_ikfk_limb(
     # IK -------------------------------------------------------------------
     ik_result = ik.build_ik(ik_joints[:ik_count], name=name, side=side, parent=parent or group,
                             control_parent=control_parent, systems_parent=group, stretch=stretch, soft=soft,
-                            pin=pin, pole_distance=pole_distance, ik_shape=ik_shape, size=size,
+                            pin=pin, pole_distance=pole_distance, pole_axis=pole_axis, ik_shape=ik_shape, size=size,
                             orient_control=orient_ik_control, orient_end=orient_end)
 
     # settings control -----------------------------------------------------

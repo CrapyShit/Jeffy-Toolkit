@@ -129,6 +129,9 @@ class RiggingPage(w.Page):
                         w.button("Create Twist", lambda: actions.build_twist(self.twist_count.value(),
                                                                              self.twist_mode.currentText()),
                                  "Select start and end joints")))
+        self.finger_pole_axis = w.combo(["auto", "+x", "-x", "+y", "-y", "+z", "-z"], "auto",
+                                        "Pole vector side: auto (bend direction) or a local axis of the "
+                                        "finger's middle joint")
         self.foot_mirror = w.check("Both sides", True, "Also build the other side (L_ <-> R_ names)")
         foot_basic = w.column(
             w.row(self.foot_mirror, w.button("Reverse Foot", lambda: actions.build_reverse_foot_auto(
@@ -152,12 +155,14 @@ class RiggingPage(w.Page):
             ], 2),
             w.button("Finger Controls", lambda: actions.build_fingers(self.size_box.value()),
                      "Select finger root joints (and optionally the control receiving the attributes)"),
-            w.button("IK/FK Fingers (contact)", lambda: actions.build_finger_ikfk(self.size_box.value(),
-                                                                                  self.stretch.isChecked()),
-                     "Select finger root joints (the first joint that bends, not the metacarpal), optionally "
-                     "then the hand control. Each finger gets FK, an IK to the tip and an ikFk switch. Set the "
-                     "IK control's 'space' to world to keep the tip on a contact point while the hand moves. "
-                     "Fingers should be slightly bent in the bind pose so the IK knows which way to bend."))
+            w.row(("Pole axis", self.finger_pole_axis), w.button(
+                "IK/FK Fingers (contact)", lambda: actions.build_finger_ikfk(
+                    self.size_box.value(), self.stretch.isChecked(), self.finger_pole_axis.currentText()),
+                "Select finger root joints (the first joint that bends, not the metacarpal), optionally "
+                "then the hand control. Each finger gets FK, an IK to the tip and an ikFk switch. Set the "
+                "IK control's 'space' to world to keep the tip on a contact point while the hand moves. "
+                "Pole axis: auto uses the bend direction (fingers slightly bent in the bind pose), or pick the "
+                "local axis of the finger's middle joint that points to the knuckle side.")))
         self.flex_tips = w.check("Tip controls", True)
         foot_advanced = w.column(
             w.label("Flexible Rig (antCGi): node based foot (Roll, Bank, HeelTwist, ToeTwist, ToeTap + "

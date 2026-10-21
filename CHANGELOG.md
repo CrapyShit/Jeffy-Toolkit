@@ -7,6 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Pole axis** for **IK/FK Fingers**: *auto* keeps placing the pole in the
+  bend direction. `+x`, `-x`, `+y`, `-y`, `+z` or `-z` places it along that
+  local axis of each finger's middle joint, so straight fingers and any
+  joint orientation work. The Python builders take it too
+  (`ik.build_ik(..., pole_axis="+z")`, `ikfk.build_ikfk_limb`,
+  `fingers.build_finger_ikfk`).
 - **Reverse Foot** is now one click (Rigging tab > Twist / Foot / Fingers,
   menu *Rigging*, or `jeffy.rig.foot.build_reverse_foot_auto`): select the
   leg IK control, then the foot joints (ankle, ball, toe [, toe end] - or
