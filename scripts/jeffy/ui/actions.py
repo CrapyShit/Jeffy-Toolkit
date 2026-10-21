@@ -17,6 +17,15 @@ from jeffy.core import decorators, naming
 from jeffy.core.decorators import ToolError, tool
 
 
+def _scaled(value):
+    """``value`` times the global rig scale (``jeffy.set_rig_scale``), ``None`` stays ``None``."""
+    if value is None:
+        return None
+    from jeffy.core import settings
+
+    return value * settings.rig_scale()
+
+
 def _selection(minimum=1, node_type=None, flatten=False, ordered=False):
     kwargs = {"flatten": flatten}
     if ordered:
@@ -56,6 +65,7 @@ def _folder_dialog(caption="Folder"):
 @tool("Create Controls")
 def create_controls(shape="circle", size=1.0, axis="x", color_value=None, offsets=("zero",), constrain=False,
                     hierarchy=True, line_width=None):
+    size = _scaled(size)
     from jeffy.controls import control, shapes
 
     selection = cmds.ls(selection=True, transforms=True) or []
@@ -78,6 +88,7 @@ def create_controls(shape="circle", size=1.0, axis="x", color_value=None, offset
 
 @tool("Replace Shape")
 def replace_shapes(shape="circle", size=None, axis="y"):
+    size = _scaled(size)
     from jeffy.controls import shapes
 
     shapes.replace_shape(_selection(), shape, size=size, axis=axis)
@@ -458,6 +469,7 @@ def _name_side(joint, default="limb"):
 
 @tool("Create Rig Structure")
 def create_rig_structure(name="character", size=10.0):
+    size = _scaled(size)
     from jeffy.rig import structure
 
     result = structure.create(name, size)
@@ -467,6 +479,7 @@ def create_rig_structure(name="character", size=10.0):
 
 @tool("FK Chain")
 def build_fk(shape="circle", size=1.0, connect="constraint", skip_last=False):
+    size = _scaled(size)
     from jeffy.rig import fk
 
     chain = _chain_from_selection(1)
@@ -477,6 +490,7 @@ def build_fk(shape="circle", size=1.0, connect="constraint", skip_last=False):
 
 @tool("IK Chain")
 def build_ik(stretch=True, soft=True, pin=True, pole_distance=1.0, size=1.0):
+    size = _scaled(size)
     from jeffy.rig import ik
 
     chain = _chain_from_selection(3)
@@ -489,6 +503,7 @@ def build_ik(stretch=True, soft=True, pin=True, pole_distance=1.0, size=1.0):
 
 @tool("IK/FK Limb")
 def build_ikfk(stretch=True, soft=True, pin=True, pole_distance=1.0, size=1.0, ik_count=None):
+    size = _scaled(size)
     from jeffy.rig import ikfk
 
     chain = _chain_from_selection(3)
@@ -501,6 +516,7 @@ def build_ikfk(stretch=True, soft=True, pin=True, pole_distance=1.0, size=1.0, i
 
 @tool("Spline IK")
 def build_spline(controls=3, stretch=True, volume=True, size=1.0):
+    size = _scaled(size)
     from jeffy.rig import spline
 
     chain = _chain_from_selection(3)
@@ -516,7 +532,7 @@ def build_ribbon(joints=5, controls=3, width=None, name="ribbon", attach=True):
 
     selection = _selection(2, ordered=True)
     result = ribbon.build_ribbon(selection, name=name, side=naming.side_from_name(selection[0]),
-                                 num_joints=joints, num_controls=controls, width=width)
+                                 num_joints=joints, num_controls=controls, width=width, size=_scaled(1.0))
     if attach:
         # first/last ribbon controls follow the first/last selected objects,
         # middle controls follow a blend of both (bendy limb behaviour)
@@ -609,7 +625,7 @@ def build_eye_rig(distance=30.0):
 
     selection = _selection(1)
     head = (cmds.listRelatives(selection[0], parent=True) or [None])[0]
-    result = aim.build_eye_rig(selection, distance=distance, up_object=head,
+    result = aim.build_eye_rig(selection, distance=_scaled(distance), up_object=head, size=_scaled(1.0),
                                control_parent=_follow_parent(selection[0], "eyes"))
     cmds.select(result["master"].node)
 
@@ -630,6 +646,7 @@ def create_dynamic_chain(size=1.0):
     blend between it and the simulated chain (``dynamics`` attribute on the
     first FK control).
     """
+    size = _scaled(size)
     from jeffy.joints import tools as joint_tools
     from jeffy.rig import common, dynamics, fk
 
@@ -647,6 +664,7 @@ def create_dynamic_chain(size=1.0):
 
 @tool("Finger Controls")
 def build_fingers(size=0.5):
+    size = _scaled(size)
     from jeffy.core import dag
     from jeffy.rig import fingers
 
@@ -711,6 +729,7 @@ def _joint_selection(minimum=1):
 
 @tool("Flexible Structure")
 def create_flexible_structure(name="Robot", size=10.0):
+    size = _scaled(size)
     from jeffy.rig.flexible import structure
 
     result = structure.create(name, size)
@@ -720,6 +739,7 @@ def create_flexible_structure(name="Robot", size=10.0):
 
 @tool("Flexible IK/FK Limb")
 def build_flexible_limb(stretch=True, pole_distance=0.0, size=1.0, ik_orient="joint"):
+    size = _scaled(size)
     from jeffy.rig.flexible import limb
 
     chain = _chain_from_selection(3)
@@ -752,6 +772,7 @@ def add_flexible_bind_helpers():
 
 @tool("Flexible Spine")
 def build_flexible_spine(size=1.0, pelvis_first=True):
+    size = _scaled(size)
     from jeffy.core import dag
     from jeffy.rig.flexible import spine
 
@@ -769,6 +790,7 @@ def build_flexible_spine(size=1.0, pelvis_first=True):
 
 @tool("Flexible Fingers")
 def build_flexible_fingers(size=0.3, include_tips=True):
+    size = _scaled(size)
     from jeffy.rig.flexible import fingers
 
     roots = _joint_selection(1)
@@ -789,6 +811,7 @@ def _limb_owning(joint):
 
 @tool("Flexible Ribbon")
 def build_flexible_ribbon(joints=9, size=1.0, deformers=True, crease_fix=True, end_follow="point"):
+    size = _scaled(size)
     from jeffy.core import dag
     from jeffy.rig.flexible import ribbon
 
@@ -1580,7 +1603,7 @@ def scene_report():
 def create_template(name="biped", scale=1.0):
     from jeffy.autorig import templates
 
-    roots = templates.create(name, scale=scale)
+    roots = templates.create(name, scale=_scaled(scale))
     cmds.select(clear=True)
     return roots
 

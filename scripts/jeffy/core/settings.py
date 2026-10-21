@@ -6,6 +6,7 @@ from jeffy.core import fileio
 
 DEFAULTS = {
     "control_size": 1.0,
+    "rig_scale": 1.0,
     "control_shape": "circle",
     "control_axis": "x",
     "control_line_width": 2.0,
@@ -68,3 +69,24 @@ def reset():
     global _cache
     _cache = dict(DEFAULTS)
     save()
+
+
+def rig_scale():
+    """Global multiplier for every control shape the toolkit creates.
+
+    Set it to fit the size of the character in the scene (for example 0.1 when
+    the default shapes come out ten times too big). Always a positive float.
+    """
+    try:
+        value = float(get("rig_scale", 1.0))
+    except (TypeError, ValueError):
+        return 1.0
+    return value if value > 0.0 else 1.0
+
+
+def set_rig_scale(value):
+    value = float(value)
+    if value <= 0.0:
+        raise ValueError("The rig scale must be greater than 0")
+    set("rig_scale", value)
+    return value

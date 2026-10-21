@@ -43,6 +43,18 @@ class JeffyToolkitWindow(*_BASES):
         title = QtWidgets.QLabel("<b>%s</b> <span style='color:#888'>v%s</span>" % (TOOLKIT_NAME, __version__))
         header.addWidget(title)
         header.addStretch(1)
+        header.addWidget(QtWidgets.QLabel("Rig scale"))
+        self.rig_scale = QtWidgets.QDoubleSpinBox()
+        self.rig_scale.setRange(0.0001, 10000.0)
+        self.rig_scale.setDecimals(4)
+        self.rig_scale.setSingleStep(0.1)
+        self.rig_scale.setValue(settings.rig_scale())
+        self.rig_scale.setToolTip("Multiplies the size of every control the toolkit creates, in every tab\n"
+                                  "(controls, IK/FK, ribbons, flexible rig, auto-rig...).\n"
+                                  "Use it to fit the rig size in the scene, e.g. 0.1 if shapes are 10x too big.\n"
+                                  "Existing controls are not changed. Saved between sessions.")
+        self.rig_scale.valueChanged.connect(lambda value: settings.set_rig_scale(value))
+        header.addWidget(self.rig_scale)
         reload_button = QtWidgets.QPushButton("Reload")
         reload_button.setToolTip("Reload every toolkit module (development)")
         reload_button.clicked.connect(self._reload)
