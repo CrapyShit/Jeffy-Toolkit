@@ -73,6 +73,7 @@ MENU = [
         ("Spline IK/FK Switch", _act("build_spline_ikfk")),
         ("Ribbon", _act("build_ribbon")),
         ("Twist Joints", _act("build_twist")),
+        ("Reverse Foot (IK control, foot joints)", _act("build_reverse_foot_auto")),
         ("Reverse Foot From Chain (IK control, heel joint)", _act("build_reverse_foot_from_chain")),
         ("Space Switch (control, then targets)", _act("add_space_switch")),
         ("Matrix Constraint", _act("matrix_constraint")),

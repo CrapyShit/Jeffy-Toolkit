@@ -585,6 +585,46 @@ def build_reverse_foot():
                             name=_name_side(ankle, "foot")[0], side=naming.side_from_name(ankle))
 
 
+@tool("Reverse Foot")
+def build_reverse_foot_auto(mirror=True):
+    from jeffy.core import transform
+    from jeffy.rig import foot
+
+    selection = _selection(2, ordered=True)
+    ik_ctl = selection[0]
+    joints = [s for s in selection[1:] if "." not in s and cmds.nodeType(s) == "joint"]
+    guides = [s for s in selection[1:] if s not in joints]
+    if not joints or cmds.nodeType(ik_ctl) == "joint":
+        raise ToolError("Select the leg IK control, then the foot joints (ankle, ball, toe - or just the ankle)")
+    if len(guides) not in (0, 1, 3):
+        raise ToolError("Optional after the joints: a heel locator, or heel, inner and outer locators")
+    positions = [transform.get_position(g) for g in guides]
+
+    def build(control, foot_joints, points):
+        side = naming.side_from_name(foot_joints[0]) or naming.side_from_name(control)
+        heel = points[0] if points else None
+        inner, outer = (points[1], points[2]) if len(points) == 3 else (None, None)
+        label = (_name_side(control, "foot")[0].replace("IK", "").replace("Ik", "") or "leg") + "Foot"
+        return foot.build_reverse_foot_auto(control, foot_joints, heel_pos=heel, inner_pos=inner, outer_pos=outer,
+                                            name=label, side=side)
+
+    results = [build(ik_ctl, joints, positions)]
+    built = [ik_ctl]
+    if mirror:
+        other_ctl = foot.mirror_name(ik_ctl)
+        other_joints = [foot.mirror_name(j) for j in joints]
+        if other_ctl and all(other_joints) and cmds.objExists(other_ctl) \
+                and all(cmds.objExists(j) for j in other_joints) \
+                and not cmds.attributeQuery("roll", node=other_ctl, exists=True):
+            mirrored = [(-p[0], p[1], p[2]) for p in positions]
+            results.append(build(other_ctl, other_joints, mirrored))
+            built.append(other_ctl)
+    decorators.message("Reverse foot on %s - move the ...Inner / ...Outer ZRO groups to adjust the bank pivots"
+                       % ", ".join(built))
+    cmds.select(built)
+    return results
+
+
 @tool("Reverse Foot From Chain")
 def build_reverse_foot_from_chain(mirror=True):
     from jeffy.rig import foot

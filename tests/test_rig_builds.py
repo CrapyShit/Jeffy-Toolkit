@@ -251,6 +251,47 @@ def test_reverse_foot_from_chain(cmds, mirror):
     assert_no_offset_parent_cycles(cmds)
 
 
+@pytest.mark.parametrize("select", ["ankle", "all"])
+def test_reverse_foot_one_click(cmds, select):
+    from jeffy.ui import actions
+
+    legs = {}
+    for side, x in (("L", 2.0), ("R", -2.0)):
+        joints, _none = make_leg(cmds, side, x, with_reverse=False)
+        cmds.select(joints[0], joints[2])
+        run(actions.build_ik)
+        ik_ctl = [n for n in cmds.ls("%s_*IK_CTL" % side) if "Pole" not in n][0]
+        legs[side] = (joints, ik_ctl)
+
+    joints, ik_ctl = legs["L"]
+    cmds.select([ik_ctl] + ([joints[2]] if select == "ankle" else joints[2:]))
+    run(actions.build_reverse_foot_auto)
+
+    for side, (joints, ik_ctl) in legs.items():
+        assert cmds.attributeQuery("roll", node=ik_ctl, exists=True), side
+        reverse = [j for j in cmds.ls("%s_*Rev*_JNT" % side)]
+        assert len(reverse) == 4, reverse
+        heel = [j for j in reverse if "Heel" in j][0]
+        heel_pos = cmds.xform(heel, query=True, worldSpace=True, translation=True)
+        ankle_pos = cmds.xform(joints[2], query=True, worldSpace=True, translation=True)
+        # heel behind the ankle, on the ground (the toe height)
+        assert heel_pos[2] < ankle_pos[2] and heel_pos[1] == pytest.approx(0.1)
+        ankle_rev = [j for j in reverse if "Ankle" in j][0]
+        assert cmds.xform(ankle_rev, query=True, worldSpace=True, translation=True) == pytest.approx(ankle_pos)
+        assert [c for c in cmds.listRelatives(ankle_rev, children=True) or [] if "End" in c]
+    assert_no_offset_parent_cycles(cmds)
+
+
+def test_ik_counterpart_prefers_the_ik_chain(cmds):
+    from jeffy.rig import foot
+
+    bind, _none = make_leg(cmds, "L", 2.0, with_reverse=False)
+    ik_joints, _none = make_leg(cmds, "L", 2.0, prefix="IK", with_reverse=False)
+    assert foot.ik_counterpart(bind[2]) == ik_joints[2]
+    assert foot.ik_counterpart(ik_joints[2]) == ik_joints[2]
+    assert foot.foot_chain([bind[2]]) == (bind[2], bind[3], bind[4], bind[4])
+
+
 def test_reverse_foot_finds_the_ik_ankle(cmds):
     from jeffy.rig import foot
 
