@@ -23,14 +23,19 @@ def _data(node):
     main, data = face_common.find_rig(node)
     if not data:
         raise ValueError("%s is not part of a face curve rig (select the rig's Main control)" % node)
+    if "low" not in data:
+        raise ValueError("%s is a face ribbon: blink / lip seal need curve rigs (Curve Rig From Edge Loop)" % node)
     return main, data
 
 
-def build_blink(upper, lower, attr_holder=None, name="blink", side=None, height=0.2):
+def build_blink(upper, lower, attr_holder=None, name="blink", side=None, height=0.2, attr="blink",
+                height_attr="blinkHeight"):
     """Add ``blink`` / ``blinkHeight`` to ``attr_holder`` (default: the upper rig's main control).
 
     :param upper: any node of the upper lid curve rig (its main control)
     :param lower: any node of the lower lid curve rig
+    :param attr, height_attr: attribute names (``seal`` / ``sealHeight`` to
+        seal lips: see :func:`build_lip_seal`)
     :returns: dict with the ``blink`` and ``height`` plugs and the blink ``curve``
     """
     upper_main, up = _data(upper)
@@ -39,9 +44,9 @@ def build_blink(upper, lower, attr_holder=None, name="blink", side=None, height=
     if len(up["controls"]) != len(low["controls"]):
         raise ValueError("The upper and lower lid rigs need the same number of controls")
 
-    attributes.add_separator(holder, "blink")
-    blink = attributes.add_attr(holder, "blink", "float", default=0.0, minimum=0.0, maximum=1.0)
-    blink_height = attributes.add_attr(holder, "blinkHeight", "float", default=height, minimum=0.0, maximum=1.0)
+    attributes.add_separator(holder, attr)
+    blink = attributes.add_attr(holder, attr, "float", default=0.0, minimum=0.0, maximum=1.0)
+    blink_height = attributes.add_attr(holder, height_attr, "float", default=height, minimum=0.0, maximum=1.0)
 
     # blink line: (1 - height) * upper + height * lower
     line = face_common.clean_duplicate(up["low"], naming.compose(name + "Line", side, "curve"))
@@ -63,3 +68,10 @@ def build_blink(upper, lower, attr_holder=None, name="blink", side=None, height=
                      line_bs + ".weight[0]", force=True)
     cmds.connectAttr(blink_height, line_bs + ".weight[1]", force=True)
     return {"blink": blink, "height": blink_height, "curve": line, "targets": targets}
+
+
+def build_lip_seal(upper, lower, attr_holder=None, name="lipSeal", side=None, height=0.5):
+    """Seal the lips (``seal`` / ``sealHeight``) on two lip curve rigs: the
+    same network as the blink, the lips meet on a line between them."""
+    return build_blink(upper, lower, attr_holder=attr_holder, name=name, side=side, height=height, attr="seal",
+                       height_attr="sealHeight")

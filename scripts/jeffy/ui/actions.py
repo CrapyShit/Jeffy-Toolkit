@@ -1966,3 +1966,97 @@ def build_eyelid_blink(height=0.2):
                                side=side, height=height)
     cmds.select(holder or selection[0])
     return result
+
+
+@tool("Face Ribbon")
+def build_face_ribbon(name="upperLip", controls=5, size=0.3):
+    from jeffy.core import mathlib
+    from jeffy.rig import common
+    from jeffy.rig.face import curve_rig, ribbon
+
+    selection = cmds.ls(selection=True, flatten=True) or []
+    edges = [s for s in selection if ".e[" in s]
+    others = [s for s in selection if "." not in s]
+    if len(edges) < 2:
+        raise ToolError("Select an edge loop (lip line, brow...) and optionally the head joint")
+    name = (name.strip() or "lip").replace(" ", "_")
+    points = curve_rig.ordered_points(edges)
+    side = _side_from_x(mathlib.centroid(points)[0])
+    follow = others[0] if others else None
+    control_parent = common.follow_group(naming.compose(name + "Follow", side, "group"), follow) \
+        if follow else None
+    result = ribbon.build_face_ribbon(points=points, name=name, side=side, num_controls=controls,
+                                      control_parent=control_parent, size=_scaled(size))
+    decorators.message("%d joints - skin the mesh to them" % len(result["joints"]))
+    cmds.select(result["main"].node)
+    return result
+
+
+@tool("Jaw")
+def build_face_jaw(size=1.0):
+    from jeffy.rig.face import jaw
+
+    selection = _selection(1, ordered=True)
+    jaw_joint = selection[0]
+    if cmds.nodeType(jaw_joint) != "joint":
+        raise ToolError("Select the jaw joint, then optionally the upper lip and lower lip Main controls")
+    upper = selection[1] if len(selection) > 1 else None
+    lower = selection[2] if len(selection) > 2 else None
+    side = naming.side_from_name(jaw_joint) or "C"
+    result = jaw.build_jaw(jaw_joint, name=_name_side(jaw_joint, "jaw")[0], side=side, size=_scaled(size),
+                           control_parent=_follow_parent(jaw_joint, "jaw"), upper_lip=upper, lower_lip=lower)
+    cmds.select(result["control"].node)
+    return result
+
+
+@tool("Partial Follow")
+def add_partial_follow(percent=0.5, mode="parent"):
+    from jeffy.rig.face import follow
+
+    selection = _selection(2, ordered=True)
+    driver, driven = selection[0], selection[1:]
+    plugs = [follow.add_follow(node, driver, default=percent, mode=mode) for node in driven]
+    decorators.message("%d control(s) follow %s ('follow' attribute)" % (len(plugs), driver))
+    cmds.select(driven)
+    return plugs
+
+
+@tool("Fleshy Eyes")
+def add_fleshy_eyes(percent=0.3):
+    from jeffy.rig.face import follow
+
+    selection = _selection(2, ordered=True)
+    eye, lids = selection[0], selection[1:]
+    plugs = [follow.add_follow(lid, eye, mode="orient", pivot=eye, attr="eyeFollow", default=percent)
+             for lid in lids]
+    decorators.message("%d lid control(s) follow %s ('eyeFollow' attribute)" % (len(plugs), eye))
+    cmds.select(lids)
+    return plugs
+
+
+@tool("Lip Seal")
+def build_lip_seal(height=0.5):
+    from jeffy.rig.face import blink
+
+    selection = _selection(2, ordered=True)
+    holder = selection[2] if len(selection) > 2 else None
+    result = blink.build_lip_seal(selection[0], selection[1], attr_holder=holder,
+                                  side=naming.parse(selection[0])["side"], height=height)
+    cmds.select(holder or selection[0])
+    return result
+
+
+@tool("Connect Channel To Blendshape")
+def connect_channel_to_target(attr="translateY", in_min=0.0, in_max=1.0, target=""):
+    from jeffy.deformers import blendshape
+
+    selection = _selection(2, ordered=True)
+    control = selection[0]
+    if not target:
+        raise ToolError("Type the blendshape target name")
+    if not cmds.attributeQuery(attr, node=control, exists=True):
+        raise ToolError("%s has no attribute %r" % (control, attr))
+    value = blendshape.connect_target(_find_blendshape(selection[1]), target.strip(), "%s.%s" % (control, attr),
+                                      in_min, in_max)
+    decorators.message("%s.%s (%g -> %g) drives %s" % (control, attr, in_min, in_max, target))
+    return value
