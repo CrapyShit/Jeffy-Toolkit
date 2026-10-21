@@ -87,8 +87,9 @@ def build_spline_ik(
 
     handle, effector = cmds.ikHandle(startJoint=joints[0], endEffector=joints[-1], solver="ikSplineSolver",
                                      curve=curve, createCurve=False, parentCurve=False, rootOnCurve=True,
-                                     simplifyCurve=False, name=naming.compose(base, side, "ik_handle"))
-    cmds.rename(effector, naming.compose(base, side, "effector"))
+                                     simplifyCurve=False,
+                                     name=naming.unique_name(naming.compose(base, side, "ik_handle")))
+    cmds.rename(effector, naming.unique_name(naming.compose(base, side, "effector")))
     handle = cmds.parent(handle, group)[0]
 
     if twist:
@@ -270,8 +271,9 @@ def build_spline_ikfk(
                                              color_value=color_value)
     handle, effector = cmds.ikHandle(startJoint=ik_joints[0], endEffector=ik_joints[-1], solver="ikSplineSolver",
                                      curve=curve, createCurve=False, parentCurve=False, rootOnCurve=True,
-                                     simplifyCurve=False, name=naming.compose(name, side, "ik_handle"))
-    cmds.rename(effector, naming.compose(name, side, "effector"))
+                                     simplifyCurve=False,
+                                     name=naming.unique_name(naming.compose(name, side, "ik_handle")))
+    cmds.rename(effector, naming.unique_name(naming.compose(name, side, "effector")))
     handle = cmds.parent(handle, group)[0]
     cmds.setAttr(handle + ".dTwistControlEnable", 1)
     cmds.setAttr(handle + ".dWorldUpType", 4)

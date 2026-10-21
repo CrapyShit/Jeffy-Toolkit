@@ -608,6 +608,38 @@ def test_finger_pole_axis(cmds, axis, expected):
         assert mathlib.normalize(offset) != pytest.approx(expected, abs=1e-3)
 
 
+def test_finger_ikfk_roots_with_the_same_base_name(cmds):
+    """``L_metacarp01`` and ``L_metacarp02`` used to both become ``metacarp``:
+    ``More than one object matches name: L_metacarpIK_IKH``."""
+    from jeffy.ui import actions
+
+    hand = cmds.createNode("joint", name="L_hand_JNT")
+    roots = []
+    for finger in range(2):
+        parent = hand
+        for i in range(4):
+            name = "L_metacarp%02d_JNT" % (finger + 1) if i == 0 else "L_metacarp%d_%d_JNT" % (finger + 1, i)
+            joint = cmds.createNode("joint", name=name, parent=parent)
+            cmds.setAttr(joint + ".translate", 1.0, 0.0, float(finger) if i == 0 else 0.0)
+            if i == 1:
+                cmds.setAttr(joint + ".jointOrient", 0.0, 0.0, -10.0)
+            roots.append(joint) if i == 0 else None
+            parent = joint
+    cmds.select(roots)
+    run(actions.build_finger_ikfk)
+    handles = cmds.ls(type="ikHandle")
+    assert len(handles) == 2 and len(set(handles)) == 2, handles
+    assert cmds.ls("L_metacarp01IK_CTL") and cmds.ls("L_metacarp02IK_CTL"), cmds.ls("*IK_CTL")
+
+
+def test_finger_names():
+    from jeffy.ui import actions
+
+    assert actions._finger_names(["L_index01_JNT", "L_middle01_JNT"]) == ["index", "middle"]
+    assert actions._finger_names(["L_metacarp01_JNT", "L_metacarp02_JNT"]) == ["metacarp01", "metacarp02"]
+    assert actions._finger_names(["L_finger_JNT", "R_finger_JNT"]) == ["finger01", "finger02"]
+
+
 def test_dynamic_chain_drives_selection(cmds):
     from jeffy.ui import actions
 

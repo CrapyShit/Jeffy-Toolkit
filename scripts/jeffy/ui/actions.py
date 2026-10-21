@@ -759,6 +759,24 @@ def create_dynamic_chain(size=1.0):
     return result
 
 
+def _finger_names(roots):
+    """One distinct name per finger root: ``L_index01_JNT`` -> ``index``.
+
+    The trailing number is dropped (the controls are numbered again) unless
+    two roots would end up with the same name (``L_metacarp01_JNT`` and
+    ``L_metacarp02_JNT`` -> ``metacarp01``, ``metacarp02``).
+    """
+    full = [naming.parse(r)["name"] or naming.strip_namespace(naming.short_name(r)) for r in roots]
+    short = [re.sub(r"\d+$", "", n) or n for n in full]
+    names = [s if short.count(s) == 1 else f for s, f in zip(short, full)]
+    seen = {}
+    result = []
+    for name in names:  # still the same (e.g. no number at all): number them
+        seen[name] = seen.get(name, 0) + 1
+        result.append(name if names.count(name) == 1 else "%s%02d" % (name, seen[name]))
+    return result
+
+
 @tool("Finger Controls")
 def build_fingers(size=0.5):
     size = _scaled(size)
@@ -771,12 +789,8 @@ def build_fingers(size=0.5):
     others = [s for s in selection if cmds.nodeType(s) != "joint"]
     if others:
         holder = others[0]
-    def finger_name(root):
-        # "L_index01_JNT" -> "index" (the FK controls are numbered again)
-        name = naming.parse(root)["name"] or naming.strip_namespace(root)
-        return re.sub(r"\d+$", "", name) or name
-
-    chains = [(finger_name(r), [naming.short_name(j) for j in dag.get_chain(r)]) for r in roots]
+    names = _finger_names(roots)
+    chains = [(n, [naming.short_name(j) for j in dag.get_chain(r)]) for n, r in zip(names, roots)]
     if not roots:
         raise ToolError("Select finger root joints")
     fingers.build_fingers(chains, side=naming.side_from_name(roots[0]), attr_holder=holder, size=size,
@@ -795,11 +809,8 @@ def build_finger_ikfk(size=0.5, stretch=False, pole_axis="auto"):
     if not roots:
         raise ToolError("Select finger root joints (first joint that bends, not the metacarpal)")
 
-    def finger_name(root):
-        name = naming.parse(root)["name"] or naming.strip_namespace(root)
-        return re.sub(r"\d+$", "", name) or name
-
-    chains = [(finger_name(r), [naming.short_name(j) for j in dag.get_chain(r)]) for r in roots]
+    names = _finger_names(roots)
+    chains = [(n, [naming.short_name(j) for j in dag.get_chain(r)]) for n, r in zip(names, roots)]
     result = fingers.build_finger_ikfk(chains, side=naming.side_from_name(roots[0]),
                                        attr_holder=others[0] if others else None, size=size, stretch=stretch,
                                        pole_axis=pole_axis,
