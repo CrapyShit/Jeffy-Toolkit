@@ -7,6 +7,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Reverse Foot** is now one click (Rigging tab > Twist / Foot / Fingers,
+  menu *Rigging*, or `jeffy.rig.foot.build_reverse_foot_auto`): select the
+  leg IK control, then the foot joints (ankle, ball, toe [, toe end] - or
+  just the ankle).
+  - It creates the reverse chain itself: heel behind the ankle on the
+    ground, toe tip on the ground, then ball and ankle on the foot joints.
+  - It adds the bank pivots and the roll / bank / twist / toe tap
+    attributes, and builds the other side when the `L_` / `R_` names match.
+  - Bind joints of an IK/FK limb are swapped for their IK joints.
+  - Optional after the joints: a heel locator, or heel, inner and outer
+    locators.
+  - The previous buttons stay as *Reverse Foot (locators)* and
+    *Reverse Foot From Chain*.
 - **Reverse Foot From Chain** (Rigging tab > Twist / Foot / Fingers, menu
   *Rigging*, or `jeffy.rig.foot.build_reverse_foot_from_chain`): select the
   leg IK control, then the first joint of your own reverse chain

@@ -131,15 +131,23 @@ class RiggingPage(w.Page):
                                  "Select start and end joints")))
         self.foot_mirror = w.check("Both sides", True, "Also build the other side (L_ <-> R_ names)")
         foot_basic = w.column(
-            w.button("Reverse Foot", actions.build_reverse_foot,
-                     "Select in order: IK control, ankle, ball, toe (IK joints), heel locator, inner "
-                     "locator, outer locator. The IK end target is found automatically (or select it second)."),
-            w.row(self.foot_mirror, w.button("Reverse Foot From Chain", lambda: actions.build_reverse_foot_from_chain(
+            w.row(self.foot_mirror, w.button("Reverse Foot", lambda: actions.build_reverse_foot_auto(
                 self.foot_mirror.isChecked()),
+                "Select the leg IK control, then the foot joints (ankle, ball, toe [, toe end] - or just the "
+                "ankle). Builds the reverse chain (heel behind the ankle, toe tip on the ground), the bank pivots "
+                "and the roll / bank / twist / toe tap attributes. Optional after the joints: a heel locator, or "
+                "heel, inner and outer locators. Builds the other side too when L_/R_ names match.")),
+            w.grid([
+                w.button("Reverse Foot (locators)", actions.build_reverse_foot,
+                         "Select in order: IK control, ankle, ball, toe (IK joints), heel locator, inner "
+                         "locator, outer locator. Pivot groups instead of a reverse chain."),
+                w.button("Reverse Foot From Chain", lambda: actions.build_reverse_foot_from_chain(
+                    self.foot_mirror.isChecked()),
                 "Select the leg IK control, then the reverse chain's first joint (heel > toe tip > ball > ankle, "
                 "ankle and ball on the base foot joints). Optional: the IK ankle joint, then inner and outer bank "
                 "pivots (default: on each side of the ball, move their ZRO groups to adjust). Builds the other "
-                "side too when L_/R_ names match.")),
+                "side too when L_/R_ names match."),
+            ], 2),
             w.button("Finger Controls", lambda: actions.build_fingers(self.size_box.value()),
                      "Select finger root joints (and optionally the control receiving the attributes)"),
             w.button("IK/FK Fingers (contact)", lambda: actions.build_finger_ikfk(self.size_box.value(),

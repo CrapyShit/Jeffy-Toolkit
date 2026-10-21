@@ -343,3 +343,106 @@ def mirror_name(node):
         if right in short:
             return short.replace(right, left, 1)
     return None
+
+
+# ---------------------------------------------------------------------------
+# One click reverse foot: builds the reverse chain from the foot joints
+# ---------------------------------------------------------------------------
+def foot_chain(joints):
+    """``(ankle, ball, toe, tip)`` from the selected foot joints.
+
+    Pass the ankle alone (ball and toe are its first child joints) or the
+    ankle, ball, toe and optionally the toe end. ``tip`` is the toe end, or
+    the toe when there is none.
+    """
+    joints = [naming.short_name(j) for j in joints]
+    chain = list(joints)
+    while len(chain) < 4:
+        children = cmds.listRelatives(chain[-1], children=True, type="joint") or []
+        if not children:
+            break
+        chain.append(naming.short_name(children[0]))
+    if len(chain) < 3:
+        raise ValueError("Select the ankle, ball and toe joints (or the ankle of a chain ankle > ball > toe)")
+    ankle, ball, toe = chain[:3]
+    tip = chain[3] if len(chain) > 3 else toe
+    return ankle, ball, toe, tip
+
+
+def ik_counterpart(joint):
+    """The IK joint sitting on ``joint`` (IK/FK limbs), or ``joint`` itself."""
+    short = naming.short_name(joint)
+    if "IK" in short:
+        return short
+    position = transform.get_position(joint)
+    children = [transform.get_position(c) for c in cmds.listRelatives(joint, children=True, type="joint") or []]
+    for other in cmds.ls(type="joint") or []:
+        name = naming.short_name(other)
+        if "IK" not in name or mathlib.distance(transform.get_position(other), position) > 1e-3:
+            continue
+        other_children = [transform.get_position(c)
+                          for c in cmds.listRelatives(other, children=True, type="joint") or []]
+        if not children or any(mathlib.distance(a, b) < 1e-3 for a in children for b in other_children):
+            return name
+    return short
+
+
+def foot_guides(ankle, ball, tip, heel_back=0.3):
+    """Default ``(heel, toe_tip)`` positions: on the ground under the foot.
+
+    The ground is the lowest of the ball and the tip. The heel sits behind
+    the ankle by ``heel_back`` times the ankle -> tip length.
+    """
+    ankle_pos = transform.get_position(ankle)
+    ball_pos = transform.get_position(ball)
+    tip_pos = transform.get_position(tip)
+    ground = min(ball_pos[1], tip_pos[1])
+    forward = mathlib.sub(tip_pos, ankle_pos)
+    forward = (forward[0], 0.0, forward[2])
+    length = mathlib.length(forward)
+    forward = mathlib.normalize(forward) if length > 1e-6 else (0.0, 0.0, 1.0)
+    heel = mathlib.sub((ankle_pos[0], ground, ankle_pos[2]), mathlib.scale(forward, max(length, 1e-3) * heel_back))
+    return heel, (tip_pos[0], ground, tip_pos[2])
+
+
+def build_reverse_chain(ankle, ball, heel_pos, tip_pos, name="foot", side=None, parent=None):
+    """Create ``heel > toe tip > ball > ankle`` joints aligned with the foot
+    (Z forward, Y up); returns the joints."""
+    from jeffy.joints import tools as joint_tools
+
+    frame = foot_frame(heel_pos, tip_pos)
+    joints = []
+    current = parent
+    for label, position in (("Heel", heel_pos), ("ToeTip", tip_pos), ("Ball", transform.get_position(ball)),
+                            ("Ankle", transform.get_position(ankle))):
+        joint = joint_tools.create_joint(naming.compose(name + "Rev" + label, side, "joint"), parent=current)
+        cmds.xform(joint, worldSpace=True, translation=position)
+        matrix.set_joint_orient_from_matrix(joint, frame)
+        joints.append(joint)
+        current = joint
+    return joints
+
+
+def build_reverse_foot_auto(ik_control, foot_joints, heel_pos=None, inner_pos=None, outer_pos=None, name="foot",
+                            side=None, roll_break=30.0, roll_straight=60.0, heel_back=0.3, bank_width=0.3):
+    """The whole reverse foot from the IK control and the foot joints.
+
+    Creates the reverse joint chain (heel, toe tip, ball, ankle), the bank
+    pivots and the roll network, then wires the leg IK and the foot joints
+    (see :func:`build_reverse_foot_from_chain`). When ``foot_joints`` are
+    bind joints of an IK/FK limb, their IK joints are used.
+
+    :param foot_joints: the ankle, or ankle, ball, toe [, toe end]
+    :param heel_pos: default behind the ankle, on the ground
+    :returns: the :func:`build_reverse_foot_from_chain` result plus ``guides``
+    """
+    ankle, ball, _toe, tip = foot_chain(foot_joints)
+    ik_ankle = ik_counterpart(ankle)
+    default_heel, tip_pos = foot_guides(ankle, ball, tip, heel_back)
+    heel_pos = heel_pos or default_heel
+    reverse = build_reverse_chain(ankle, ball, heel_pos, tip_pos, name=name, side=side, parent=ik_control)
+    result = build_reverse_foot_from_chain(ik_control, reverse[0], ankle=ik_ankle, inner_pos=inner_pos,
+                                           outer_pos=outer_pos, name=name, side=side, roll_break=roll_break,
+                                           roll_straight=roll_straight, bank_width=bank_width)
+    result["guides"] = {"heel": heel_pos, "toe_tip": tip_pos}
+    return result
