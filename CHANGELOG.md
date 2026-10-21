@@ -106,6 +106,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   still take `size` as given.
 
 ### Fixed
+- **Face Ribbon / Curve Rig From Edge Loop** failed with `TypeError: Too many
+  objects or values` (`polyToCurve` only works on the selection, not on a list
+  of edges). The edge loop's vertices are now ordered straight from the edges
+  (in any selection order, open or closed loops), with clear errors when the
+  edges fork or are in several pieces. `curves.curve_from_edges` now selects
+  the edges before calling `polyToCurve`.
+- **Eyelid Blink / Lip Seal** with edges selected now say to build the two
+  curve rigs first and select their Main controls.
 - **IK/FK Fingers** failed with `More than one object matches name:
   L_metacarpIK_IKH` when two finger roots only differ by their number
   (`L_metacarp01`, `L_metacarp02`): both fingers were called `metacarp`.

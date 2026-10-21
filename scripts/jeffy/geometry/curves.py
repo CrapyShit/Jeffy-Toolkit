@@ -37,7 +37,16 @@ def curve_from_nodes(node_list, name="curve_CRV", degree=3, through=False):
 
 def curve_from_edges(edges, name="curve_CRV", degree=3):
     """Create a curve from an edge loop/selection (``polyToCurve``)."""
-    result = cmds.polyToCurve(edges, form=2, degree=degree, conformToSmoothMeshPreview=False)
+    # polyToCurve works on the selection, not on a list of components
+    previous = cmds.ls(selection=True) or []
+    cmds.select(edges, replace=True)
+    try:
+        result = cmds.polyToCurve(form=2, degree=degree, conformToSmoothMeshPreview=False)
+    finally:
+        if previous:
+            cmds.select(previous, replace=True)
+        else:
+            cmds.select(clear=True)
     curve = cmds.rename(result[0], naming.unique_name(name))
     cmds.delete(curve, constructionHistory=True)
     return curve
