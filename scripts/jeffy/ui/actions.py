@@ -1954,11 +1954,18 @@ def build_face_curve_rig(name="lip", controls=5, size=0.3, aim_from_center=False
     cmds.select(result["main"].node)
 
 
+def _face_rig_mains(selection, what):
+    if any("." in s for s in selection):
+        raise ToolError("%s: select the Main controls of two curve rigs, not edges - build them first with "
+                        "'Curve Rig From Edge Loop' (one for the upper, one for the lower)" % what)
+    return selection
+
+
 @tool("Eyelid Blink")
 def build_eyelid_blink(height=0.2):
     from jeffy.rig.face import blink
 
-    selection = _selection(2, ordered=True)
+    selection = _face_rig_mains(_selection(2, ordered=True), "Eyelid Blink")
     holder = selection[2] if len(selection) > 2 else None
     side = naming.parse(selection[0])["side"]
     result = blink.build_blink(selection[0], selection[1], attr_holder=holder,
@@ -2038,7 +2045,7 @@ def add_fleshy_eyes(percent=0.3):
 def build_lip_seal(height=0.5):
     from jeffy.rig.face import blink
 
-    selection = _selection(2, ordered=True)
+    selection = _face_rig_mains(_selection(2, ordered=True), "Lip Seal")
     holder = selection[2] if len(selection) > 2 else None
     result = blink.build_lip_seal(selection[0], selection[1], attr_holder=holder,
                                   side=naming.parse(selection[0])["side"], height=height)

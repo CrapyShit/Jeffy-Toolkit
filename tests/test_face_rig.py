@@ -289,3 +289,52 @@ def test_connect_channel_to_target(face, monkeypatch):
     face.select(ctl, mesh)
     run(actions.connect_channel_to_target, "translateY", 0.0, -1.0, "browDown")
     assert driver(face, node + ".weight[1]")
+
+
+# ---------------------------------------------------------------------------
+# edge loops
+# ---------------------------------------------------------------------------
+def test_order_loop_open_and_closed():
+    from jeffy.rig.face import curve_rig
+
+    # edges given in any order, like a Maya selection
+    assert curve_rig.order_loop([("c", "d"), ("a", "b"), ("b", "c")]) == ["a", "b", "c", "d"]
+    closed = curve_rig.order_loop([("b", "c"), ("c", "d"), ("d", "a"), ("a", "b")])
+    assert sorted(closed) == ["a", "b", "c", "d"] and len(closed) == 4
+    with pytest.raises(ValueError, match="branch"):
+        curve_rig.order_loop([("a", "b"), ("b", "c"), ("b", "d")])
+    with pytest.raises(ValueError, match="several pieces"):
+        curve_rig.order_loop([("a", "b"), ("c", "d")])
+
+
+def test_face_ribbon_from_selected_edges(face_geo, monkeypatch):
+    """Edges come straight from the selection (the polyToCurve path failed:
+    'Too many objects or values')."""
+    from jeffy.rig.face import curve_rig
+    from jeffy.ui import actions
+
+    positions = {"body.vtx[%d]" % i: p for i, p in enumerate(lip_points(0.2))}
+    edges = ["body.e[%d]" % i for i in (5, 1, 7, 3, 0, 6, 2, 4)]  # shuffled, like a real selection
+    vertices = {"body.e[%d]" % i: ("body.vtx[%d]" % i, "body.vtx[%d]" % (i + 1)) for i in range(8)}
+    real_ls = face_geo.ls
+
+    def ls(*args, **kwargs):
+        if kwargs.get("selection") or kwargs.get("sl"):
+            return list(edges)
+        if args and isinstance(args[0], list) and args[0] and "." in args[0][0]:
+            return list(args[0])
+        return real_ls(*args, **kwargs)
+
+    monkeypatch.setattr(face_geo, "ls", ls)
+    monkeypatch.setattr(curve_rig, "edge_vertices", lambda edge: list(vertices[edge]))
+    monkeypatch.setattr(curve_rig, "vertex_position", lambda vertex: positions[vertex])
+    result = run(actions.build_face_ribbon, "upperLip", 5, 0.3)
+    assert len(result["joints"]) == 9
+
+
+def test_blink_with_edges_selected_explains(face):
+    from jeffy.core.decorators import ToolError
+    from jeffy.ui import actions
+
+    with pytest.raises(ToolError, match="not edges"):
+        actions._face_rig_mains(["body.e[234]", "body.e[455]"], "Eyelid Blink")

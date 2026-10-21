@@ -24,18 +24,56 @@ from jeffy.rig import common
 from jeffy.rig.face import common as face_common
 
 
+def edge_vertices(edge):
+    """The two vertices (``mesh.vtx[i]``) of one edge."""
+    return cmds.ls(cmds.polyListComponentConversion(edge, fromEdge=True, toVertex=True), flatten=True) or []
+
+
+def order_loop(pairs):
+    """Order the vertices of connected edges: ``[(a, b), ...]`` -> ``[a, ..., z]``.
+
+    Works for an open line (starts at an end) or a closed loop. Raises when
+    the edges are not one continuous line (branches or several pieces).
+    """
+    neighbours = {}
+    for a, b in pairs:
+        neighbours.setdefault(a, []).append(b)
+        neighbours.setdefault(b, []).append(a)
+    if not neighbours:
+        raise ValueError("No edges selected")
+    if any(len(n) > 2 for n in neighbours.values()):
+        raise ValueError("The edges branch: select a single edge loop (a line of edges, no forks)")
+    ends = [v for v, n in neighbours.items() if len(n) == 1]
+    if len(ends) not in (0, 2):
+        raise ValueError("The edges are in several pieces: select one continuous edge loop")
+    start = sorted(ends)[0] if ends else sorted(neighbours)[0]
+    order = [start]
+    previous = None
+    while True:
+        options = [n for n in neighbours[order[-1]] if n != previous]
+        if not options or options[0] == start:
+            break
+        previous = order[-1]
+        order.append(options[0])
+    if len(order) != len(neighbours):
+        raise ValueError("The edges are in several pieces: select one continuous edge loop")
+    return order
+
+
 def ordered_points(edges):
     """World positions of the vertices of an edge loop, in loop order."""
-    curve = curves.curve_from_edges(edges, name="faceTmp_CRV", degree=1)
-    points = curves.get_cv_positions(curve)
-    cmds.delete(curve)
-    cleaned = []
-    for point in points:
-        if not cleaned or mathlib.distance(point, cleaned[-1]) > 1e-5:
-            cleaned.append(tuple(point))
-    if len(cleaned) > 3 and mathlib.distance(cleaned[0], cleaned[-1]) < 1e-5:  # closed loop
-        cleaned.pop()
-    return cleaned
+    edges = cmds.ls(edges, flatten=True) or []
+    pairs = []
+    for edge in edges:
+        vertices = edge_vertices(edge)
+        if len(vertices) == 2:
+            pairs.append(tuple(vertices))
+    order = order_loop(pairs)
+    return [vertex_position(v) for v in order]
+
+
+def vertex_position(vertex):
+    return tuple(cmds.pointPosition(vertex, world=True))
 
 
 def build_curve_rig(edges=None, points=None, name="lip", side=None, num_controls=5, center=None, up_object=None,
