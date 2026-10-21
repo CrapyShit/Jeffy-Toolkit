@@ -69,6 +69,7 @@ MENU = [
         ("IK Chain (stretch, soft)", _act("build_ik")),
         ("IK/FK Limb", _act("build_ikfk")),
         ("Spline IK", _act("build_spline")),
+        ("Hybrid Spline IK/FK", _act("build_hybrid_spline")),
         ("Ribbon", _act("build_ribbon")),
         ("Twist Joints", _act("build_twist")),
         ("Space Switch (control, then targets)", _act("add_space_switch")),

@@ -82,6 +82,13 @@ class RiggingPage(w.Page):
                          w.button("Spline IK", lambda: actions.build_spline(
                              self.spline_controls.value(), self.stretch.isChecked(), self.volume.isChecked(),
                              self.size_box.value()), "Select start and end joints")))
+        self.spline_per_joint = w.check("Per-joint IK/FK", True)
+        spline.add(w.row(self.spline_per_joint, w.button("Hybrid Spline IK/FK", lambda: actions.build_hybrid_spline(
+            self.spline_controls.value(), self.stretch.isChecked(), self.volume.isChecked(),
+            self.size_box.value(), self.spline_per_joint.isChecked()),
+            "Select start and end joints. Spline IK controls (rotate them to bend and twist) with an FK control "
+            "on every joint on top. 'ikBlend' on the last IK control blends to pure FK; 'Per-joint IK/FK' adds "
+            "an ik01, ik02... switch for each joint.")))
         self.ribbon_joints = w.spin(5, 2, 100, 0, 1)
         self.ribbon_controls = w.spin(3, 2, 50, 0, 1)
         self.ribbon_name = w.line_edit("ribbon")

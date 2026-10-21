@@ -7,6 +7,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Hybrid Spline IK/FK** (Rigging tab > Spline IK, menu *Rigging*, or
+  `jeffy.rig.spline.build_hybrid_spline`): a spline IK with an FK control on
+  every joint layered on top. Rotating an FK control bends everything below
+  it, on top of the IK shape.
+  - The IK controls drive the curve through tangent points, so rotating one
+    bends the curve around it (`tangentLength` sets how far it reaches). The
+    first and last controls twist the chain, the middle ones add twist to
+    their neighbours, and the last joint follows the last control's rotation.
+  - `ikBlend` on the last IK control blends the chain between IK and pure FK.
+    With *Per-joint IK/FK* every joint also gets its own `ik01`, `ik02`...
+    switch; a joint on FK keeps the joints below it attached (no gaps).
 - **Rig scale**: a global multiplier for the size of every control the
   toolkit builds, so the default shapes fit any character size in the scene.
   Set it in the *Rig scale* field at the top of the window (every tab uses it)
