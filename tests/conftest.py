@@ -20,6 +20,9 @@ if SCRIPTS not in sys.path:
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+#: tests/in_maya needs real Maya: run it with ``mayapy tests/in_maya/run.py``
+collect_ignore = ["in_maya"]
+
 
 def _install_fake_maya():
     existing = sys.modules.get("maya")

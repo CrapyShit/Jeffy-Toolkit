@@ -81,6 +81,29 @@ The window has ten tabs:
 | **Animate** | Reset, bind pose, mirror/flip pose, save/load poses, IK/FK and space switching, bake, export skeleton, FBX export |
 | **Utilities** | Scene cleanup (namespaces, unknown nodes/plugins, Turtle, empty groups), rig locking, scene report, and the **Rig Check** validator with auto-fixes |
 
+### Setup Belt
+
+A second window for rigging **your own skeleton** setup by setup, instead of
+an auto-rig: build the bind skeleton, then pick a tool, load its joints into
+named slots and build. Layer tools stack on setups that already exist.
+
+```python
+import jeffy
+jeffy.show_setup_belt()     # or Jeffy menu > Open Setup Belt, or the BELT shelf button
+```
+
+| Stage | Tools |
+|---|---|
+| 1 (built) | **Rig Base** (Global / Root, groups, visibility), **FK Chain** (master control, FK stretch, orient spaces), **IK/FK Limb** (stretch, soft IK, pin, pole or no-flip knee, seamless snap), **Spaces** (custom spaces on any top control) |
+| 2 | Ribbon (bendy limbs with their own deform joints), Twist, Reverse Foot |
+| 3 | Spline IK/FK (spine, neck, tail), Hand / Finger poses, Aim (eyes), Jaw / Hinge, Fleshy Lids |
+
+Everything is matrix based: no constraint nodes, the bind joints keep their
+hierarchy and joint orients. Setups attach to each other automatically (in
+any build order), get default spaces, mirror L to R, and can be deleted (the
+skeleton goes back to its rest pose) or rebuilt with new options. See
+[docs/setup_belt.md](docs/setup_belt.md).
+
 ---
 
 ## Feature highlights
@@ -199,8 +222,10 @@ scripts/jeffy/
     deformers/   skin, blendshape, generic deformers, pure weight math
     utils/       pose, bake/export, connections/SDK, selection, scene, checks
     autorig/     guides, components, builder, templates
+    setups/      Setup Belt: framework (core/) and tools (tools/)
     ui/          Qt window + pages, menu, shelf, actions
 tests/           pytest suite (runs without Maya)
+tests/in_maya/   headless tests in real Maya: mayapy tests/in_maya/run.py
 tools/           check_maya_api.py (validates every cmds flag against maya-stubs)
 docs/            guides and roadmap
 ```
