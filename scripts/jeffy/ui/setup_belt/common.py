@@ -1,0 +1,75 @@
+"""Helpers shared by the belt panels: running commands safely, selection."""
+
+import traceback
+
+from maya import cmds
+
+from jeffy.core import decorators, logger
+from jeffy.setups.core.schema import SetupError
+from jeffy.ui.qt import QtWidgets
+
+LOG = logger.get_logger("setup_belt")
+
+
+def run(label, func, status=None, parent=None):
+    """Run ``func`` in one undo step and report the result.
+
+    User errors (:class:`SetupError`, bad values) are shown as a warning;
+    unexpected errors are logged with a traceback and the partial work is
+    undone. Returns ``(ok, result)``.
+    """
+    try:
+        with decorators.undo_chunk(label):
+            result = func()
+    except (SetupError, decorators.ToolError) as error:
+        cmds.warning("[Jeffy] %s: %s" % (label, error))
+        _status(status, "%s: %s" % (label, error), error=True)
+        return False, None
+    except Exception as error:  # pragma: no cover - interactive only
+        LOG.error("%s failed: %s\n%s", label, error, traceback.format_exc())
+        rolled_back = decorators._rollback(label)
+        note = " (the partial build was undone)" if rolled_back else ""
+        cmds.warning("[Jeffy] %s failed: %s%s - see the Script Editor" % (label, error, note))
+        _status(status, "%s failed: %s%s. See the Script Editor." % (label, error, note), error=True)
+        return False, None
+    return True, result
+
+
+def _status(widget, text, error=False):
+    if widget is None:
+        return
+    widget.setText(text)
+    widget.setStyleSheet("color: #e07a5f;" if error else "color: #81b29a;")
+
+
+def ok(widget, text):
+    _status(widget, text, error=False)
+
+
+def selection(transforms_only=True):
+    """Selected nodes in selection order (shapes -> transforms, components -> objects).
+
+    Without Maya's *Track selection order* preference, joints come parent
+    first (the right order for a chain).
+    """
+    nodes = cmds.ls(orderedSelection=True, long=False) or []
+    if not nodes:
+        nodes = cmds.ls(selection=True, long=False) or []
+        if len(nodes) > 1:
+            depth = dict((node, (cmds.ls(node, long=True) or [""])[0].count("|")) for node in nodes)
+            nodes = sorted(nodes, key=lambda node: depth[node])
+    result = []
+    for node in nodes:
+        node = node.split(".")[0]
+        if transforms_only and cmds.objExists(node) and cmds.objectType(node, isAType="shape"):
+            node = (cmds.listRelatives(node, parent=True) or [node])[0]
+        if node not in result:
+            result.append(node)
+    return result
+
+
+def confirm(parent, title, text):
+    answer = QtWidgets.QMessageBox.question(parent, title, text,
+                                            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                                            QtWidgets.QMessageBox.No)
+    return answer == QtWidgets.QMessageBox.Yes

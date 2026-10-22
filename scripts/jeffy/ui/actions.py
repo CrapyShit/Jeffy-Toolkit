@@ -2067,3 +2067,13 @@ def connect_channel_to_target(attr="translateY", in_min=0.0, in_max=1.0, target=
                                       in_min, in_max)
     decorators.message("%s.%s (%g -> %g) drives %s" % (control, attr, in_min, in_max, target))
     return value
+
+
+# ---------------------------------------------------------------------------
+# Setup Belt
+# ---------------------------------------------------------------------------
+@tool("Setup Belt", undo=False)
+def show_setup_belt():
+    import jeffy.setups
+
+    return jeffy.setups.show()

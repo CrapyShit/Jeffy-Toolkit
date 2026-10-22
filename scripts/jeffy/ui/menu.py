@@ -157,6 +157,7 @@ def install():
     uninstall()
     menu = cmds.menu(MENU_NAME, label="Jeffy", parent="MayaWindow", tearOff=True)
     cmds.menuItem(label="Open Jeffy Toolkit", command=_show, parent=menu)
+    cmds.menuItem(label="Open Setup Belt", command=_act("show_setup_belt"), parent=menu)
     cmds.menuItem(divider=True, parent=menu)
     for title, entries in MENU:
         sub = cmds.menuItem(label=title, subMenu=True, tearOff=True, parent=menu)

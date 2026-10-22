@@ -7,6 +7,32 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Setup Belt** (`jeffy.show_setup_belt()`, Jeffy menu > *Open Setup Belt*,
+  **BELT** shelf button): stackable setup tools that rig your own skeleton.
+  Stage 1:
+  - Framework (`jeffy.setups`): every setup keeps a hidden tag (slots,
+    options, guides, controls, outputs, created nodes), drives the bind joints
+    with matrix nodes only (joint orient aware, no constraint nodes),
+    auto-attaches to the setup above it in any build order, gets default
+    spaces, mirrors L to R, and can be deleted (skeleton back to rest) or
+    rebuilt with new options (layers on top are rebuilt too). Preview guides,
+    one undo step per build.
+  - **Rig Base**: `{name}_RIG` with controls / systems / skeleton / geometry
+    groups, Global (global scale, visibility and display switches) and Root
+    controls. The skeleton group follows the Global control.
+  - **FK Chain**: orient / parent spaces on the top control, master control,
+    FK stretch (`length`), optional control on the last joint.
+  - **IK/FK Limb**: planar hidden IK chain (works with any joint
+    orientation), soft IK, stretch, pin to the pole, upper / lower length,
+    pole or no-flip knee (`kneeTwist`), game safe (translate) or scale stretch,
+    `ikFk` on a settings control with proxies, seamless snap both ways
+    (`jeffy.setups.tools.ikfk_limb.toggle`).
+  - **Spaces**: custom spaces (parent / orient / point) on any top control,
+    seamless space switch.
+  - Window: tool list + generated panels (slots with `[<]` load buttons,
+    options, Preview / Build / Rebuild / Delete) and a Setups list with IK/FK
+    snap and space switching.
+  - `tests/in_maya`: headless tests in real Maya (`mayapy tests/in_maya/run.py`).
 - **Face tab, rebuilt in rig building order** (antCGi style joint / ribbon
   face rig plus blendshapes, with the Python API in `jeffy.rig.face`):
   - *Face Ribbon From Edge Loop* (`face.ribbon`) for lips, brows and cheek

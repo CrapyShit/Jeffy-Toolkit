@@ -21,6 +21,7 @@ rig        rig building blocks (FK, IK, IK/FK, spline, ribbon, foot, spaces ...)
 deformers  skinning, blendshape and generic deformer tools
 utils      pose, bake, scene cleanup, rig validation, connections ...
 autorig    guide based modular auto-rigger
+setups     Setup Belt: stackable setup tools for your own skeleton
 ui         Qt user interface, Maya menu and shelf
 """
 
@@ -34,6 +35,13 @@ def show(*args, **kwargs):
     from jeffy.ui import main_window
 
     return main_window.show(*args, **kwargs)
+
+
+def show_setup_belt(*args, **kwargs):
+    """Open the Setup Belt: stackable setup tools for your own skeleton (see :mod:`jeffy.setups`)."""
+    from jeffy.ui.setup_belt import window
+
+    return window.show(*args, **kwargs)
 
 
 def set_rig_scale(value):
@@ -81,6 +89,12 @@ def reload_toolkit(show_window=False):
 
         main_window.close()
     except Exception:  # pragma: no cover - UI may not be importable in batch
+        pass
+    try:
+        from jeffy.ui.setup_belt import window as belt_window
+
+        belt_window.close()
+    except Exception:  # pragma: no cover
         pass
 
     names = sorted(name for name in sys.modules if name == "jeffy" or name.startswith("jeffy."))

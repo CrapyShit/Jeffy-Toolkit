@@ -6,6 +6,7 @@ SHELF_NAME = "Jeffy"
 
 BUTTONS = [
     ("JEFFY", "Open Jeffy Toolkit", "import jeffy; jeffy.show()"),
+    ("BELT", "Open the Setup Belt", "from jeffy.ui import actions; actions.show_setup_belt()"),
     ("CTL", "Create control on selection", "from jeffy.ui import actions; actions.create_controls()"),
     ("ORI", "Orient joints (plane)", "from jeffy.ui import actions; actions.orient_joints(up_mode='plane')"),
     ("FK", "FK chain on selection", "from jeffy.ui import actions; actions.build_fk()"),

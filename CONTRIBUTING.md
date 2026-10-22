@@ -24,6 +24,12 @@ QT_QPA_PLATFORM=offscreen python -m pytest     # tests (no Maya needed)
 
 CI runs the same three steps on every push.
 
+Scene behaviour (the Setup Belt builds) is tested in real Maya, headless:
+
+```bash
+"C:/Program Files/Autodesk/Maya2027/bin/mayapy.exe" tests/in_maya/run.py   # -k name to filter
+```
+
 ## Conventions
 
 - **Python 3.7 compatible** (Maya 2022). No walrus operator, no `match`, no
@@ -52,6 +58,7 @@ CI runs the same three steps on every push.
 | a template | `autorig/templates.py` (`TEMPLATES`) |
 | a menu entry | `ui/menu.py` (`MENU`) |
 | a shelf button | `ui/shelf.py` (`BUTTONS`) |
+| a Setup Belt tool | a `Setup` subclass with `@scene.register` in `setups/tools/` (declare `SLOTS`, `OPTIONS`, `GUIDES`, write `build_setup`), imported in `setups/tools/__init__.py`. The belt panel is generated; add a test in `tests/in_maya/` |
 
 `tests/test_ui.py` fails if the menu, shelf or a page references an action
 that doesn't exist.
