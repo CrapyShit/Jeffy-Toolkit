@@ -78,7 +78,8 @@ def test_belt_window_builds_offscreen():
     from jeffy.ui.setup_belt import panel, window
 
     belt = window.SetupBeltWindow()
-    labels = [belt.tool_list.item(i).text().strip() for i in range(belt.tool_list.count())]
+    labels = [belt.tool_list.item(i).text().strip().lstrip("/ ") for i in range(belt.tool_list.count())]
+    labels = [text for text in labels if text]  # headers are "// BUILD", with blank spacers between groups
     assert labels[:4] == ["BUILD", "Rig Base", "FK Chain", "IK/FK Limb"]
     build = labels[:labels.index("LAYERS")]
     layers = labels[labels.index("LAYERS"):labels.index("SCENE")]
