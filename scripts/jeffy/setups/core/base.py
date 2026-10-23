@@ -24,10 +24,14 @@ from maya import cmds
 
 from jeffy.core import attributes, matrix, naming, plugins, transform
 from jeffy.setups.core import attach, controls, drive, scene, schema
+from jeffy.setups.core import edges as edge_tools
 from jeffy.setups.core import guides as guides_module
 from jeffy.setups.core import tag as tag_module
 from jeffy.setups.core.schema import SetupError
 
+#: scene-wide nodes Maya creates on first use and shares between every setup (never owned, never deleted):
+#: deleting an IK solver deletes every IK handle using it
+SHARED_TYPES = ("ikRPsolver", "ikSCsolver", "ikSplineSolver", "ikSpringSolver", "ikSystem", "hikSolver")
 NO_RIG_MESSAGE = "No Rig Base found for these joints. Build a Rig Base first (BUILD > Rig Base)."
 
 
@@ -41,6 +45,10 @@ def _notify(hook, setup):
         getattr(node_tabs, hook)(setup)
     except Exception as error:  # a UI problem must not stop building or deleting
         cmds.warning("[Jeffy] Node Editor tab for %s: %s" % (setup.describe(), error))
+
+
+def _shared(node):
+    return cmds.objExists(node) and cmds.nodeType(node) in SHARED_TYPES
 
 
 class Setup(object):
@@ -71,6 +79,7 @@ class Setup(object):
         self._options = None
         self._guides = None
         self._slots = None
+        self._keep = []
 
     def __repr__(self):
         return "%s(%r)" % (type(self).__name__, self.tag)
@@ -118,6 +127,9 @@ class Setup(object):
         result = {}
         for slot in cls.SLOTS:
             value = slot.normalize(values.get(slot.key))
+            if slot.components:
+                result[slot.key] = cls._resolve_edges(slot, value)
+                continue
             names = value if slot.multi else ([value] if value else [])
             resolved = []
             for name in names:
@@ -133,6 +145,17 @@ class Setup(object):
                 raise SetupError("Fill the '%s' slot" % slot.label)
             result[slot.key] = resolved if slot.multi else (resolved[0] if resolved else None)
         return result
+
+    @staticmethod
+    def _resolve_edges(slot, value):
+        if not value:
+            if not slot.optional:
+                raise SetupError("Fill the '%s' slot (select the edges, then <)" % slot.label)
+            return []
+        if not edge_tools.is_edges(value):
+            raise SetupError("%s: give mesh edges (%s)" % (slot.label, ", ".join(value)))
+        edge_tools.mesh_of(value)  # one mesh only
+        return edge_tools.compact(value)
 
     @classmethod
     def first_joint(cls, slots):
@@ -304,6 +327,8 @@ class Setup(object):
         for slot in self.SLOTS:
             value = slots.get(slot.key)
             nodes = value if slot.multi else ([value] if value else [])
+            if slot.components:  # the mesh (rename proof), the edge names go in "slots"
+                nodes = [edge_tools.mesh_of(value)[0]] if value else []
             tag_module.set_nodes(tag, "slot_" + slot.key, nodes)
             names[slot.key] = value
         tag_module.set_data(tag, "slots", names)
@@ -327,6 +352,16 @@ class Setup(object):
         tag_module.link(self.tag, group)
         return group
 
+    def keep(self, nodes):
+        """Nodes created by the build that must survive its delete (deformers on the user's meshes...).
+
+        The tool removes what it should in :meth:`before_delete`.
+        """
+        self._keep.extend(node for node in nodes if node)
+
+    def on_abort(self):
+        """Called when the build fails, before its new nodes are deleted (undo what :meth:`keep` protects)."""
+
     def _finish(self, before):
         outputs = self.outputs
         driven, rest = [], []
@@ -339,20 +374,30 @@ class Setup(object):
             rest.append(joint_rest)
         tag_module.set_nodes(self.tag, "driven", driven)
         tag_module.set_data(self.tag, "rest", rest)
-        tag_module.set_nodes(self.tag, "owned", self._new_nodes(before))
+        kept = set(cmds.ls(self._keep, long=True) or []) if self._keep else set()
+        owned = [node for node in self._new_nodes(before) if (cmds.ls(node, long=True) or [node])[0] not in kept]
+        tag_module.set_nodes(self.tag, "owned", owned)
+        tag_module.set_nodes(self.tag, "kept", self._keep)
 
     def _new_nodes(self, before):
         new = [uuid for uuid in (cmds.ls(uuid=True) or []) if uuid not in before]
         if not new:  # cmds.ls([]) would list the whole scene
             return []
-        return [node for node in (cmds.ls(new) or []) if node != self.tag]
+        return [node for node in (cmds.ls(new) or []) if node != self.tag and not _shared(node)]
 
     def _abort(self, before):
         """Undo a failed build: release joints and delete what was created."""
+        try:
+            self.on_abort()
+        except Exception as error:  # keep cleaning up
+            cmds.warning("[Jeffy] %s: %s" % (self.LABEL, error))
+        kept = set(cmds.ls(self._keep, long=True) or []) if self._keep else set()
         for joint, _output, _child in self._drives:
             if cmds.objExists(joint) and drive.incoming(joint):
                 drive.release(joint, None)
         for node in self._new_nodes(before):
+            if (cmds.ls(node, long=True) or [node])[0] in kept:
+                continue
             if cmds.objExists(node) and not cmds.lockNode(node, query=True, lock=True)[0]:
                 try:
                     cmds.delete(node)
@@ -366,6 +411,13 @@ class Setup(object):
         for slot in self.SLOTS:
             value = self._slots.get(slot.key)
             names = value if slot.multi else ([value] if value else [])
+            if slot.components:
+                try:
+                    slots[slot.key] = edge_tools.mirror(names) if names else []
+                except SetupError as error:
+                    cmds.warning("[Jeffy] %s: %s, the other side was not built" % (self.LABEL, error))
+                    return None
+                continue
             mirrored = []
             for node in names:
                 short = naming.strip_namespace(node)
@@ -511,6 +563,9 @@ class Setup(object):
         return self.options.get(key)
 
     def slot_nodes(self, key):
+        slot = self.slot_schema(key)
+        if slot is not None and slot.components:
+            return self._slot_edges(key)
         if self._slots is not None:
             value = self._slots.get(key)
             if value is None:
@@ -522,6 +577,17 @@ class Setup(object):
         stored = (tag_module.get_data(self.tag, "slots", {}) or {}).get(key)
         names = stored if isinstance(stored, list) else ([stored] if stored else [])
         return [name for name in names if cmds.objExists(name)]
+
+    def _slot_edges(self, key):
+        """Edge names of an edges slot (follows a rename of their mesh)."""
+        if self._slots is not None:
+            return list(self._slots.get(key) or [])
+        stored = (tag_module.get_data(self.tag, "slots", {}) or {}).get(key) or []
+        mesh = tag_module.get_node(self.tag, "slot_" + key)
+        if mesh:
+            current = naming.short_name(mesh)
+            stored = ["%s.%s" % (current, name.split(".", 1)[1]) for name in stored if "." in name]
+        return stored
 
     def slot_node(self, key):
         nodes = self.slot_nodes(key)
@@ -628,7 +694,9 @@ class Setup(object):
         """Everything needed to build this setup again."""
         slots = {}
         for slot in self.SLOTS:
-            nodes = [naming.short_name(node) for node in self.slot_nodes(slot.key)]
+            nodes = self.slot_nodes(slot.key)
+            if not slot.components:
+                nodes = [naming.short_name(node) for node in nodes]
             slots[slot.key] = nodes if slot.multi else (nodes[0] if nodes else None)
         return {"type": self.TYPE, "name": self.name, "side": self.side, "slots": slots,
                 "options": dict(self.options), "guides": dict(self.guides)}
@@ -689,7 +757,7 @@ class Setup(object):
         owned = [node for node in owned if cmds.objExists(node) and not cmds.objectType(node, isAType="dagNode")] + \
             [node for node in owned if cmds.objExists(node) and cmds.objectType(node, isAType="dagNode")]
         for node in owned:
-            if cmds.objExists(node):
+            if cmds.objExists(node) and not _shared(node):  # older scenes may list shared solvers
                 try:
                     cmds.delete(node)
                 except (RuntimeError, ValueError):

@@ -231,8 +231,14 @@ The **Spaces** tool edits them later, on any control.
 - **Setups** (scene list): a tree of setups and their layers. Click one to load
   it back into its panel. It also has Select controls, Rebuild, Delete,
   IK/FK match and seamless space switch.
-- Opens from the Jeff Inventory menu, the **JEFF** shelf button, or
-  `jeffy.show()`.
+- Opens from the Jeff Inventory menu, the **JEFF** shelf button (the green
+  eye), or `jeffy.show()`.
+- The window keeps Maya's grey style. Its header is a soft dot-matrix strip
+  where the eye shows the state. A light eye with a square of light means
+  idle. A green eye with the sigil means a command is running. A red eye split
+  in two means the last command failed; the panel's message says why. The eye
+  lives in `jeffy/ui/theme.py`, and `tools/make_icons.py` renders the shelf
+  icons from the same drawing code.
 - Every tool is also a Python class, for example
   `IkFkLimb.build(start=..., mid=..., end=..., stretch=True)`.
 
@@ -386,14 +392,51 @@ The node list comes from the setup's tag.
 - Uses `ZRO` `offsetParentMatrix`. Has a seamless switch button, with an
   option to key it.
 
+**13. Edge Ribbon** (built): lips, also brows, cheeks, nasolabial folds
+- Slots: the setup it follows (the **Jaw / Hinge** for lips, the head's setup
+  otherwise), the **edges** (a closed loop all around the lips, or an open
+  chain), and the blendShape (optional).
+- BlendShape: the one you load, else the first one on the mesh, else an empty
+  one is added at the front of the mesh's deformers (add targets whenever).
+  Delete removes that empty one again; it is kept once it has targets. The
+  blendShape must come before the skinCluster.
+- Options: controls (8; on a closed loop with an even count both corners get
+  one), bind joints (20), control shape (sphere, circle, cube, diamond,
+  octahedron, square, locator), ribbon width (auto), master control, jaw follow
+  defaults (upper 0, corners 0.5, lower 1), size, game safe.
+- Creates:
+  - controls along the loop that **follow the blendShape** (their channels
+    stay at 0, you animate on top), named from the centre out:
+    `C_lipsUpper`, `L_lipsUpper01`, `L_lipsCorner`, `C_lipsLower`...;
+  - `jawFollow` on each control when the base is a Jaw setup;
+  - a **master** control: moving, rotating or scaling it moves every control.
+    Its outline follows the lips' blendShape and jaw pose live;
+  - its own **bind joints** riding a ribbon driven by the controls.
+- **No double transformation**: a hidden base ribbon follows only the
+  blendShape. Skin the mesh to the bind joints yourself, then press
+  **Connect skin** in the Setups list (or `setup.connect_skin()`): each joint's
+  `bindPreMatrix` becomes the inverse of its base point, so the skin only adds
+  what the controls, the jaw and the head did.
+- **Rebuild keeps your skin**: the joints' weights are saved before the delete
+  and put back on the new joints (same names), and bindPreMatrix is wired
+  again.
+- **Game safe**: engines don't read live bindPreMatrix, so each joint carries
+  only the offset (`rest * inverse(base) * driven`) under the head bind joint.
+  A normal bind then gives the same result. In that mode the joints sit at
+  their rest spot plus the controls' offset, not on the deformed lip.
+- Mirror: an open chain on one side (a brow) builds the other side too (the
+  mesh must be symmetrical).
+
 ## Code layout
 
 ```
 scripts/jeffy/setups/
     core/      schema.py (slots, options), tag.py (setup tag), base.py (Setup class: build/delete/rebuild/mirror),
                scene.py (registry, queries), controls.py (ZRO/OFF controls), drive.py (joint-orient-aware
-               matrix driving of bind joints), attach.py (auto-attach + spaces), guides.py
-    tools/     rig_base, fk_chain, ikfk_limb, spline, aim, hand, jaw, ribbon, twist, foot, lids, spaces
+               matrix driving of bind joints), attach.py (auto-attach + spaces), guides.py,
+               edges.py (edge loop slots: order, mirror)
+    tools/     rig_base, fk_chain, ikfk_limb, spline, aim, hand, jaw, ribbon, twist, foot, lids, spaces,
+               edge_ribbon
 scripts/jeffy/ui/setup_belt/
                window.py, panel.py (built from each tool's schema), setup_list.py, common.py,
                node_tabs.py (a Node Editor tab per setup; layout from core/graph.py)

@@ -8,6 +8,20 @@ documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Edge Ribbon** layer tool: a ribbon on a mesh edge loop or chain (lips,
+  brows, cheeks). Its controls follow the mesh's blendShape and can still be
+  animated on top with no double transformation, using a hidden base ribbon
+  and live `bindPreMatrix` (or offset joints in game safe mode). It also has
+  `jawFollow` on a Jaw setup, a master control whose outline follows the lips,
+  its own bind joints, rebuilds that keep the skin weights, and mirroring for
+  one-sided chains.
+- Setup slots can hold mesh edges.
+- **The eye** at the top of the window (Proto Yeff logo) shows the state live,
+  in soft colours on Maya's own grey style: light with a square of light
+  (idle), green with the sigil (a command is running), red and split (the
+  last command failed).
+- The shelf's JEFF button is now the green eye (`icons/jeffy_eye.png`, made by
+  `tools/make_icons.py`).
 - **Node Editor tab per setup.** Building or rebuilding a setup opens a Node
   Editor tab named after it (for example `L_arm_IkFkLimb`). The tab shows only
   that setup's main nodes, laid out left to right: inputs, then matrix nodes,
@@ -15,6 +29,15 @@ documented here. The format follows
   turned off in the Setups list.
 
 ### Fixed
+- **Rebuilding or deleting a setup could delete other setups' IK handles.** The
+  first setup with IK recorded Maya's shared IK solvers as its own nodes;
+  rebuilding it deleted them, and every IK handle in the scene with them (a
+  spine stuck when the COG moved, dead IK arms and fingers). Setups now never
+  own or delete shared solvers, even in older scenes. To repair a scene, reload
+  the tool and rebuild the setups whose IK stopped working.
+- **The thumb curls toward the palm** instead of sideways: it curls in its own
+  bend plane, or toward the palm's centre when it is straight, whatever its
+  joint orientation.
 - The IK/FK Limb's auto-snap script node is created before the build, so it no
   longer lands in the setup's node list.
 

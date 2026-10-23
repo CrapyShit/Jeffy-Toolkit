@@ -3,6 +3,7 @@
 from jeffy import TOOLKIT_NAME, __version__
 from jeffy.core import logger, settings
 from jeffy.setups.core import scene
+from jeffy.ui import theme
 from jeffy.ui.qt import QtCore, QtWidgets, delete_workspace_control, dockable_base, maya_main_window
 from jeffy.ui.setup_belt.panel import ToolPanel
 from jeffy.ui.setup_belt.setup_list import SetupsPanel
@@ -28,8 +29,11 @@ class SetupBeltWindow(*_BASES):
         self.setMinimumSize(520, 480)
         self.resize(700, 680)
 
+        theme.apply(self)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
+        self.banner = theme.EyeBanner("%s %s" % (TOOLKIT_NAME, __version__))
+        layout.addWidget(self.banner)
         splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
         layout.addWidget(splitter)
 
@@ -39,7 +43,9 @@ class SetupBeltWindow(*_BASES):
         self.stack = QtWidgets.QStackedWidget()
         splitter.addWidget(self.tool_list)
         splitter.addWidget(self.stack)
+        splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
+        splitter.setSizes([150, 600])
 
         self.panels = {}
         tools = sorted(scene.load_tools().items(), key=lambda item: (item[1].ORDER, item[1].LABEL))

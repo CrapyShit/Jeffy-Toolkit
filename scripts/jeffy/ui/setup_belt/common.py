@@ -6,6 +6,7 @@ from maya import cmds
 
 from jeffy.core import decorators, logger
 from jeffy.setups.core.schema import SetupError
+from jeffy.ui import theme
 from jeffy.ui.qt import QtWidgets
 
 LOG = logger.get_logger("setup_belt")
@@ -18,20 +19,24 @@ def run(label, func, status=None, parent=None):
     unexpected errors are logged with a traceback and the partial work is
     undone. Returns ``(ok, result)``.
     """
+    theme.set_state(theme.LOADING)
     try:
         with decorators.undo_chunk(label):
             result = func()
     except (SetupError, decorators.ToolError) as error:
+        theme.set_state(theme.FAULTED)
         cmds.warning("[Jeffy] %s: %s" % (label, error))
         _status(status, "%s: %s" % (label, error), error=True)
         return False, None
     except Exception as error:  # pragma: no cover - interactive only
+        theme.set_state(theme.FAULTED)
         LOG.error("%s failed: %s\n%s", label, error, traceback.format_exc())
         rolled_back = decorators._rollback(label)
         note = " (the partial build was undone)" if rolled_back else ""
         cmds.warning("[Jeffy] %s failed: %s%s - see the Script Editor" % (label, error, note))
         _status(status, "%s failed: %s%s. See the Script Editor." % (label, error, note), error=True)
         return False, None
+    theme.set_state(theme.IDLE)
     return True, result
 
 
@@ -39,7 +44,7 @@ def _status(widget, text, error=False):
     if widget is None:
         return
     widget.setText(text)
-    widget.setStyleSheet("color: #e07a5f;" if error else "color: #81b29a;")
+    widget.setStyleSheet("color: %s;" % theme.status_color(error))
 
 
 def ok(widget, text):

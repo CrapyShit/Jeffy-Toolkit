@@ -2,6 +2,7 @@
 
 from jeffy.setups.tools import (  # noqa: F401
     aim,
+    edge_ribbon,
     fk_chain,
     foot,
     hand,

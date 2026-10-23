@@ -16,9 +16,10 @@
 from maya import cmds
 
 from jeffy.core import naming, settings
+from jeffy.setups.core import edges as edge_tools
 from jeffy.setups.core import scene
 from jeffy.ui import widgets as w
-from jeffy.ui.qt import QtWidgets
+from jeffy.ui.qt import QtCore, QtWidgets
 from jeffy.ui.setup_belt import common
 
 SIDES = ("auto", "L", "R", "C")
@@ -37,6 +38,7 @@ class SlotField(QtWidgets.QWidget):
         layout.setSpacing(3)
         self.edit = QtWidgets.QLineEdit()
         placeholder = "optional" if slot.optional else (
+            "select the edges, then <" if slot.components else
             "select in order, then <" if slot.multi else "select, then <")
         self.edit.setPlaceholderText(placeholder)
         self.edit.setToolTip(slot.tip)
@@ -71,8 +73,13 @@ class SlotField(QtWidgets.QWidget):
             value = ", ".join(value)
         self.edit.setText(value or "")
 
+    def _selected(self):
+        if self.slot.components:  # keep the edges (``mesh.e[3:9]``), not their mesh
+            return edge_tools.compact(cmds.ls(selection=True, flatten=True) or [])
+        return common.selection()
+
     def load_selection(self):
-        nodes = common.selection()
+        nodes = self._selected()
         if not nodes:
             cmds.warning("[Jeffy] select something first")
             return
@@ -83,6 +90,9 @@ class SlotField(QtWidgets.QWidget):
 
     def add_selection(self):
         current = self.value()
+        if self.slot.components:
+            self.set_value(edge_tools.compact(current + self._selected()))
+            return
         self.set_value(current + [node for node in common.selection() if node not in current])
 
 
@@ -152,6 +162,8 @@ class ToolPanel(QtWidgets.QScrollArea):
             section = w.Section("Options")
             form_widget = QtWidgets.QWidget()
             form = QtWidgets.QFormLayout(form_widget)
+            form.setFieldGrowthPolicy(QtWidgets.QFormLayout.AllNonFixedFieldsGrow)
+            form.setLabelAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
             form.setContentsMargins(0, 0, 0, 0)
             form.setSpacing(4)
             checks = []

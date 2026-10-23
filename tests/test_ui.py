@@ -50,3 +50,24 @@ def test_shape_icons_render():
     for name in library.SHAPES:
         assert not widgets.shape_icon(name).isNull()
     del app
+
+
+def test_theme_eye_states_and_banner():
+    qt = pytest.importorskip("jeffy.ui.qt")
+    app = qt.QtWidgets.QApplication.instance() or qt.QtWidgets.QApplication([])
+    from jeffy.ui import theme
+
+    for state in theme.STATES:
+        image = theme.eye_pixmap(64, state).toImage()
+        centre_row = [qt.QtGui.QColor.fromRgba(image.pixel(x, 32)) for x in range(64)]
+        assert any(color.alpha() > 0 for color in centre_row), state
+    banner = theme.EyeBanner("Jeff Inventory v0")
+    banner.resize(600, banner.height())
+    for state in theme.STATES:
+        theme.set_state(state)
+        assert theme.state() == state
+        assert not banner.grab().isNull()
+    theme.set_state(theme.IDLE)
+    with pytest.raises(ValueError):
+        theme.set_state("nope")
+    assert app is not None
