@@ -29,6 +29,15 @@ documented here. The format follows
   turned off in the Setups list.
 
 ### Fixed
+- **Rebuilding or deleting a setup could delete other setups' IK handles.** The
+  first setup with IK recorded Maya's shared IK solvers as its own nodes;
+  rebuilding it deleted them, and every IK handle in the scene with them (a
+  spine stuck when the COG moved, dead IK arms and fingers). Setups now never
+  own or delete shared solvers, even in older scenes. To repair a scene, reload
+  the tool and rebuild the setups whose IK stopped working.
+- **The thumb curls toward the palm** instead of sideways: it curls in its own
+  bend plane, or toward the palm's centre when it is straight, whatever its
+  joint orientation.
 - The IK/FK Limb's auto-snap script node is created before the build, so it no
   longer lands in the setup's node list.
 

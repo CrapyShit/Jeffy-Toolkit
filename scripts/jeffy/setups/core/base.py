@@ -29,6 +29,9 @@ from jeffy.setups.core import guides as guides_module
 from jeffy.setups.core import tag as tag_module
 from jeffy.setups.core.schema import SetupError
 
+#: scene-wide nodes Maya creates on first use and shares between every setup (never owned, never deleted):
+#: deleting an IK solver deletes every IK handle using it
+SHARED_TYPES = ("ikRPsolver", "ikSCsolver", "ikSplineSolver", "ikSpringSolver", "ikSystem", "hikSolver")
 NO_RIG_MESSAGE = "No Rig Base found for these joints. Build a Rig Base first (BUILD > Rig Base)."
 
 
@@ -42,6 +45,10 @@ def _notify(hook, setup):
         getattr(node_tabs, hook)(setup)
     except Exception as error:  # a UI problem must not stop building or deleting
         cmds.warning("[Jeffy] Node Editor tab for %s: %s" % (setup.describe(), error))
+
+
+def _shared(node):
+    return cmds.objExists(node) and cmds.nodeType(node) in SHARED_TYPES
 
 
 class Setup(object):
@@ -376,7 +383,7 @@ class Setup(object):
         new = [uuid for uuid in (cmds.ls(uuid=True) or []) if uuid not in before]
         if not new:  # cmds.ls([]) would list the whole scene
             return []
-        return [node for node in (cmds.ls(new) or []) if node != self.tag]
+        return [node for node in (cmds.ls(new) or []) if node != self.tag and not _shared(node)]
 
     def _abort(self, before):
         """Undo a failed build: release joints and delete what was created."""
@@ -750,7 +757,7 @@ class Setup(object):
         owned = [node for node in owned if cmds.objExists(node) and not cmds.objectType(node, isAType="dagNode")] + \
             [node for node in owned if cmds.objExists(node) and cmds.objectType(node, isAType="dagNode")]
         for node in owned:
-            if cmds.objExists(node):
+            if cmds.objExists(node) and not _shared(node):  # older scenes may list shared solvers
                 try:
                     cmds.delete(node)
                 except (RuntimeError, ValueError):
