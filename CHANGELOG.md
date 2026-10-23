@@ -8,6 +8,14 @@ documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Edge Ribbon** layer tool: a ribbon on a mesh edge loop or chain (lips,
+  brows, cheeks). Its controls follow the mesh's blendShape and can still be
+  animated on top with no double transformation, using a hidden base ribbon
+  and live `bindPreMatrix` (or offset joints in game safe mode). It also has
+  `jawFollow` on a Jaw setup, a master control whose outline follows the lips,
+  its own bind joints, rebuilds that keep the skin weights, and mirroring for
+  one-sided chains.
+- Setup slots can hold mesh edges.
 - **Node Editor tab per setup.** Building or rebuilding a setup opens a Node
   Editor tab named after it (for example `L_arm_IkFkLimb`). The tab shows only
   that setup's main nodes, laid out left to right: inputs, then matrix nodes,

@@ -43,6 +43,8 @@ class SetupsPanel(QtWidgets.QWidget):
         layout.addWidget(w.row(
             w.button("Rebuild", self.rebuild, "Delete and build again with the same options (layers included)"),
             w.button("Delete", self.delete, "Delete the setup and its layers; the joints go back to rest"),
+            w.button("Connect skin", self.connect_skin, "Edge Ribbon: after skinning the mesh to its joints, wire "
+                                                        "bindPreMatrix so the blendShape moves the mesh only once"),
         ))
         from jeffy.ui.setup_belt import node_tabs
 
@@ -155,6 +157,17 @@ class SetupsPanel(QtWidgets.QWidget):
         done, name = common.run("Show in Node Editor", lambda: node_tabs.show(setup, editor), self.status)
         if done:
             common.ok(self.status, "Node Editor tab %s" % name)
+
+    def connect_skin(self):
+        setup = self.selected_setup()
+        if setup is None:
+            return
+        if not hasattr(setup, "connect_skin"):
+            common._status(self.status, "Connect skin is for Edge Ribbon setups", error=True)
+            return
+        done, count = common.run("Connect skin", setup.connect_skin, self.status)
+        if done:
+            common.ok(self.status, "%s: bindPreMatrix wired for %d influence(s)." % (setup.describe(), count))
 
     def select_controls(self):
         setup = self.selected_setup()

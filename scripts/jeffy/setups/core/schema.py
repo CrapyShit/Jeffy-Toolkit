@@ -15,7 +15,8 @@ JOINT = "joint"
 JOINTS = "joints"
 NODE = "node"
 NODES = "nodes"
-SLOT_KINDS = (JOINT, JOINTS, NODE, NODES)
+EDGES = "edges"  # mesh edges (components), kept as names: ``face_GEO.e[120:131]``
+SLOT_KINDS = (JOINT, JOINTS, NODE, NODES, EDGES)
 
 
 class SetupError(ToolError):
@@ -30,7 +31,7 @@ class Slot(object):
 
     :param key: argument name in the Python API (``start``, ``end``...)
     :param label: text shown in the panel (``Start``, ``Mid``...)
-    :param kind: ``joint``, ``joints`` (ordered list), ``node`` or ``nodes``
+    :param kind: ``joint``, ``joints`` (ordered list), ``node``, ``nodes`` or ``edges``
     :param optional: the tool can build without it
     :param tip: tooltip in the panel
     """
@@ -46,7 +47,12 @@ class Slot(object):
 
     @property
     def multi(self):
-        return self.kind in (JOINTS, NODES)
+        return self.kind in (JOINTS, NODES, EDGES)
+
+    @property
+    def components(self):
+        """Mesh components (edges), not nodes."""
+        return self.kind == EDGES
 
     @property
     def joints_only(self):
