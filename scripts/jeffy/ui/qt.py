@@ -2,12 +2,12 @@
 
 try:  # Maya 2025+
     from PySide6 import QtCore, QtGui, QtWidgets  # noqa: F401
-    from shiboken6 import wrapInstance
+    from shiboken6 import invalidate, isValid, wrapInstance  # noqa: F401
 
     QT_BINDING = "PySide6"
 except ImportError:  # Maya 2017 - 2024
     from PySide2 import QtCore, QtGui, QtWidgets  # noqa: F401
-    from shiboken2 import wrapInstance
+    from shiboken2 import invalidate, isValid, wrapInstance  # noqa: F401
 
     QT_BINDING = "PySide2"
 

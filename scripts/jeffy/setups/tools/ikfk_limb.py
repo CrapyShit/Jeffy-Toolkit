@@ -276,8 +276,8 @@ class IkFkLimb(Setup):
     # ------------------------------------------------------------------
     @classmethod
     def create(cls, *args, **kwargs):
+        _ensure_script_node()  # before the build: its Node Editor tab must not pick it up
         setup = super(IkFkLimb, cls).create(*args, **kwargs)
-        _ensure_script_node()
         install_auto_snap()
         return setup
 

@@ -236,6 +236,34 @@ The **Spaces** tool edits them later, on any control.
 - Every tool is also a Python class, for example
   `IkFkLimb.build(start=..., mid=..., end=..., stretch=True)`.
 
+### Node Editor tabs
+
+Each time a setup is built or rebuilt, the Node Editor gets a tab named after
+it (`L_arm_IkFkLimb`, `C_hero_RigBase`...). The tab shows only that setup's
+main nodes, laid out left to right by dependency:
+
+1. **inputs**: its controls, what its anchors follow, and for layers the base
+   controls they use,
+2. **systems**: the matrix nodes it created (multMatrix, blendMatrix,
+   aimMatrix, decompose/compose, pickMatrix, choice, uvPin...) and its hidden
+   joints, IK handles, ribbons and curves,
+3. **outputs**: its output transforms,
+4. **joints**: the bind joints it drives.
+
+Scalar math nodes, shapes, unit conversions, controller tags and plain groups
+are hidden, but dependencies are traced through them so the order stays right.
+The node list comes from the setup's tag.
+
+- Rebuilding a setup updates its tab in place. Deleting a setup removes its tab
+  (and its layers' tabs).
+- Turn it off with **Node Editor tab per setup** in the Setups list. **Show in
+  Node Editor** opens the tab for the selected setup on demand.
+- Placement uses `nodeEditor -dotFormat` with a Graphviz "plain" file (no
+  Graphviz install needed). If Maya refuses it, the editor's own automatic
+  layout is used instead. Moving node items through Qt crashed Maya in
+  testing, so that fallback is not used.
+- Nothing happens in batch or mayapy, where there is no Node Editor.
+
 ## Tools
 
 ### Base tools (build on joints)
@@ -367,7 +395,8 @@ scripts/jeffy/setups/
                matrix driving of bind joints), attach.py (auto-attach + spaces), guides.py
     tools/     rig_base, fk_chain, ikfk_limb, spline, aim, hand, jaw, ribbon, twist, foot, lids, spaces
 scripts/jeffy/ui/setup_belt/
-               window.py, panel.py (built from each tool's schema), setup_list.py, common.py
+               window.py, panel.py (built from each tool's schema), setup_list.py, common.py,
+               node_tabs.py (a Node Editor tab per setup; layout from core/graph.py)
 tests/test_setups.py   pure-Python tests (schema, registry, window offscreen), run in CI
 tests/in_maya/         headless builds in mayapy on a generated test skeleton: mayapy tests/in_maya/run.py
 ```

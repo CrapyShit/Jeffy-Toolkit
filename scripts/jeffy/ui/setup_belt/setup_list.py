@@ -44,6 +44,14 @@ class SetupsPanel(QtWidgets.QWidget):
             w.button("Rebuild", self.rebuild, "Delete and build again with the same options (layers included)"),
             w.button("Delete", self.delete, "Delete the setup and its layers; the joints go back to rest"),
         ))
+        from jeffy.ui.setup_belt import node_tabs
+
+        self.node_tabs = w.check("Node Editor tab per setup", node_tabs.enabled(),
+                                 "Every build opens a Node Editor tab named after the setup with only its nodes, "
+                                 "laid out left to right (inputs > matrix nodes > outputs / joints)")
+        self.node_tabs.toggled.connect(node_tabs.set_enabled)
+        layout.addWidget(w.row(self.node_tabs, w.button("Show in Node Editor", self.show_graph,
+                                                        "Open / refresh the selected setup's Node Editor tab")))
 
         animate = w.Section("Animate")
         self.key = w.check("Key", False, "Set keys after snapping / switching")
@@ -133,6 +141,20 @@ class SetupsPanel(QtWidgets.QWidget):
         setup = self.selected_setup()
         if setup is not None and self.window_ref is not None:
             self.window_ref.edit_setup(setup)
+
+    def show_graph(self):
+        from jeffy.ui.setup_belt import node_tabs
+
+        setup = self.selected_setup()
+        if setup is None:
+            return
+        editor = node_tabs.backend()
+        if editor is None:
+            common._status(self.status, "The Node Editor needs Maya's interface", error=True)
+            return
+        done, name = common.run("Show in Node Editor", lambda: node_tabs.show(setup, editor), self.status)
+        if done:
+            common.ok(self.status, "Node Editor tab %s" % name)
 
     def select_controls(self):
         setup = self.selected_setup()
