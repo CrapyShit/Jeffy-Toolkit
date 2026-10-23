@@ -18,7 +18,6 @@ from maya import cmds
 from jeffy.core import naming, settings
 from jeffy.setups.core import edges as edge_tools
 from jeffy.setups.core import scene
-from jeffy.ui import theme
 from jeffy.ui import widgets as w
 from jeffy.ui.qt import QtCore, QtWidgets
 from jeffy.ui.setup_belt import common
@@ -113,12 +112,15 @@ class ToolPanel(QtWidgets.QScrollArea):
         layout.setContentsMargins(8, 6, 8, 8)
         layout.setSpacing(6)
 
-        layout.addWidget(theme.title(tool_cls.LABEL))
-        layout.addWidget(theme.hint(tool_cls.DESCRIPTION))
+        title = QtWidgets.QLabel("<span style='font-size:15px'><b>%s</b></span>" % tool_cls.LABEL.upper())
+        layout.addWidget(title)
+        description = w.label(tool_cls.DESCRIPTION)
+        description.setStyleSheet("color: #9a9a9a;")
+        layout.addWidget(description)
 
         self.banner = QtWidgets.QLabel()
-        self.banner.setObjectName("jeffyEditing")
         self.banner.setWordWrap(True)
+        self.banner.setStyleSheet("background-color: rgba(129, 178, 154, 40); padding: 4px; border-radius: 3px;")
         self.banner.setVisible(False)
         layout.addWidget(self.banner)
 
@@ -184,10 +186,9 @@ class ToolPanel(QtWidgets.QScrollArea):
         self.preview_button = w.button("Preview", self.preview, "Show the guides (pole, pivots...) at their default "
                                                                 "places. Move them, then Build.")
         self.preview_button.setVisible(bool(tool_cls.GUIDES))
-        self.build_button = w.button("BUILD", self.build, "Build the setup (one undo step)", height=32)
-        self.build_button.setObjectName("jeffyPrimary")
+        self.build_button = w.button("Build", self.build, "Build the setup (one undo step)", height=32)
+        self.build_button.setStyleSheet("QPushButton { font-weight: bold; }")
         self.delete_button = w.button("Delete", self.delete, "Delete the setup being edited (and its layers)")
-        self.delete_button.setObjectName("jeffyDanger")
         self.new_button = w.button("New", self.unload, "Stop editing: the next Build creates a new setup")
         self.select_button = w.button("Select controls", self.select_controls)
         for button in (self.delete_button, self.new_button, self.select_button):

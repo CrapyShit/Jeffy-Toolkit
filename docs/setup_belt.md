@@ -233,11 +233,12 @@ The **Spaces** tool edits them later, on any control.
   IK/FK match and seamless space switch.
 - Opens from the Jeff Inventory menu, the **JEFF** shelf button (the green
   eye), or `jeffy.show()`.
-- The header is a dot-matrix display: the eye shows the state. A white eye
-  with a square of light means idle. A lime eye with the sigil means a command
-  is running. A red eye split in two means the last command failed; the
-  panel's message says why. The look lives in `jeffy/ui/theme.py`, and
-  `tools/make_icons.py` renders the icons from the same drawing code.
+- The window keeps Maya's grey style. Its header is a soft dot-matrix strip
+  where the eye shows the state. A light eye with a square of light means
+  idle. A green eye with the sigil means a command is running. A red eye split
+  in two means the last command failed; the panel's message says why. The eye
+  lives in `jeffy/ui/theme.py`, and `tools/make_icons.py` renders the shelf
+  icons from the same drawing code.
 - Every tool is also a Python class, for example
   `IkFkLimb.build(start=..., mid=..., end=..., stretch=True)`.
 

@@ -1,6 +1,6 @@
 """SCENE > Utilities: control shape tools and skin weights export / import."""
 
-from jeffy.ui import actions, theme
+from jeffy.ui import actions
 from jeffy.ui import widgets as w
 from jeffy.ui.qt import QtWidgets
 
@@ -17,8 +17,10 @@ class UtilitiesPanel(QtWidgets.QScrollArea):
         layout = QtWidgets.QVBoxLayout(container)
         layout.setContentsMargins(8, 6, 8, 8)
         layout.setSpacing(6)
-        layout.addWidget(theme.title("Utilities"))
-        layout.addWidget(theme.hint("Control shapes and skin weights. Every button works on the selection."))
+        layout.addWidget(QtWidgets.QLabel("<span style='font-size:15px'><b>UTILITIES</b></span>"))
+        hint = w.label("Control shapes and skin weights. Every button works on the selection.")
+        hint.setStyleSheet("color: #9a9a9a;")
+        layout.addWidget(hint)
 
         shapes = w.Section("Control shapes")
         self.gallery = w.ShapeGallery()

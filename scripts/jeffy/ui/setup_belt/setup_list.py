@@ -8,7 +8,6 @@ from maya import cmds
 
 from jeffy.core import naming
 from jeffy.setups.core import attach, scene
-from jeffy.ui import theme
 from jeffy.ui import widgets as w
 from jeffy.ui.qt import QtCore, QtWidgets
 from jeffy.ui.setup_belt import common
@@ -23,8 +22,10 @@ class SetupsPanel(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(8, 6, 8, 8)
         layout.setSpacing(6)
-        layout.addWidget(theme.title("Setups"))
-        layout.addWidget(theme.hint("Every setup in the scene. Double click one to edit it in its panel."))
+        layout.addWidget(QtWidgets.QLabel("<span style='font-size:15px'><b>SETUPS</b></span>"))
+        hint = w.label("Every setup in the scene. Double click one to edit it in its panel.")
+        hint.setStyleSheet("color: #9a9a9a;")
+        layout.addWidget(hint)
 
         self.tree = QtWidgets.QTreeWidget()
         self.tree.setHeaderLabels(["Setup", "Tool", "Joints"])

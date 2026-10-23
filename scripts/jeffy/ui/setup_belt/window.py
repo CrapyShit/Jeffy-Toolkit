@@ -4,7 +4,7 @@ from jeffy import TOOLKIT_NAME, __version__
 from jeffy.core import logger, settings
 from jeffy.setups.core import scene
 from jeffy.ui import theme
-from jeffy.ui.qt import QtCore, QtGui, QtWidgets, delete_workspace_control, dockable_base, maya_main_window
+from jeffy.ui.qt import QtCore, QtWidgets, delete_workspace_control, dockable_base, maya_main_window
 from jeffy.ui.setup_belt.panel import ToolPanel
 from jeffy.ui.setup_belt.setup_list import SetupsPanel
 from jeffy.ui.setup_belt.utilities import UtilitiesPanel
@@ -31,19 +31,15 @@ class SetupBeltWindow(*_BASES):
 
         theme.apply(self)
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        self.banner = theme.EyeBanner("INVENTORY", "v" + __version__)
+        layout.setContentsMargins(4, 4, 4, 4)
+        self.banner = theme.EyeBanner("%s %s" % (TOOLKIT_NAME, __version__))
         layout.addWidget(self.banner)
         splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
-        splitter.setHandleWidth(1)
         layout.addWidget(splitter)
 
         self.tool_list = QtWidgets.QListWidget()
-        self.tool_list.setObjectName("jeffyToolList")
-        self.tool_list.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.tool_list.setMaximumWidth(170)
-        self.tool_list.setMinimumWidth(130)
+        self.tool_list.setMinimumWidth(120)
         self.stack = QtWidgets.QStackedWidget()
         splitter.addWidget(self.tool_list)
         splitter.addWidget(self.stack)
@@ -81,22 +77,15 @@ class SetupBeltWindow(*_BASES):
 
     # ------------------------------------------------------------------
     def _header(self, text):
-        if self.tool_list.count():
-            spacer = QtWidgets.QListWidgetItem("")
-            spacer.setFlags(QtCore.Qt.NoItemFlags)
-            spacer.setSizeHint(QtCore.QSize(10, 8))
-            self.tool_list.addItem(spacer)
-        item = QtWidgets.QListWidgetItem("// " + text)
+        item = QtWidgets.QListWidgetItem(text)
         item.setFlags(QtCore.Qt.NoItemFlags)
-        font = theme.mono_font(10)
+        font = item.font()
         font.setBold(True)
-        font.setLetterSpacing(QtGui.QFont.AbsoluteSpacing, 2.0)
         item.setFont(font)
-        item.setForeground(QtGui.QColor(theme.DIM))
         self.tool_list.addItem(item)
 
     def _add(self, label, key, panel, tooltip=""):
-        item = QtWidgets.QListWidgetItem("  " + label)
+        item = QtWidgets.QListWidgetItem("   " + label)
         item.setData(QtCore.Qt.UserRole, key)
         item.setToolTip(tooltip)
         self.tool_list.addItem(item)

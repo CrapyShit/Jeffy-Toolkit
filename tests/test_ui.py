@@ -61,7 +61,7 @@ def test_theme_eye_states_and_banner():
         image = theme.eye_pixmap(64, state).toImage()
         centre_row = [qt.QtGui.QColor.fromRgba(image.pixel(x, 32)) for x in range(64)]
         assert any(color.alpha() > 0 for color in centre_row), state
-    banner = theme.EyeBanner("INVENTORY", "v0")
+    banner = theme.EyeBanner("Jeff Inventory v0")
     banner.resize(600, banner.height())
     for state in theme.STATES:
         theme.set_state(state)
@@ -70,5 +70,4 @@ def test_theme_eye_states_and_banner():
     theme.set_state(theme.IDLE)
     with pytest.raises(ValueError):
         theme.set_state("nope")
-    assert "%(" not in theme.stylesheet()
     assert app is not None

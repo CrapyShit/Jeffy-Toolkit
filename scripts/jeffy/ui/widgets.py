@@ -157,13 +157,14 @@ class Section(QtWidgets.QWidget):
     def __init__(self, title, expanded=True, parent=None):
         super(Section, self).__init__(parent)
         self.toggle = QtWidgets.QToolButton()
-        self.toggle.setText(title.upper())
+        self.toggle.setText(title)
         self.toggle.setCheckable(True)
         self.toggle.setChecked(expanded)
         self.toggle.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.toggle.setArrowType(QtCore.Qt.DownArrow if expanded else QtCore.Qt.RightArrow)
         self.toggle.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-        self.toggle.setObjectName("jeffySection")  # styled by the window theme
+        self.toggle.setStyleSheet("QToolButton { border: none; font-weight: bold; padding: 4px; "
+                                  "background-color: rgba(255, 255, 255, 18); text-align: left; }")
         self.toggle.toggled.connect(self._on_toggle)
 
         self.content = QtWidgets.QWidget()

@@ -16,9 +16,10 @@ documented here. The format follows
   its own bind joints, rebuilds that keep the skin weights, and mirroring for
   one-sided chains.
 - Setup slots can hold mesh edges.
-- **Proto Yeff look** for the window: black and lime, a dot-matrix header with
-  the eye and JEFF, and the eye showing the state live (white square: idle;
-  lime sigil: a build is running; red, split: the last command failed).
+- **The eye** at the top of the window (Proto Yeff logo) shows the state live,
+  in soft colours on Maya's own grey style: light with a square of light
+  (idle), green with the sigil (a command is running), red and split (the
+  last command failed).
 - The shelf's JEFF button is now the green eye (`icons/jeffy_eye.png`, made by
   `tools/make_icons.py`).
 - **Node Editor tab per setup.** Building or rebuilding a setup opens a Node
