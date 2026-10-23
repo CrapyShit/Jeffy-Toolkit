@@ -3,7 +3,7 @@
 Maya is not available outside of Maya, so a *fake* ``maya`` package made of
 ``MagicMock`` objects is installed before the toolkit is imported. This lets
 every module be imported (catching syntax/import errors) and the pure Python
-parts (math, naming, parsing, weights, symmetry...) be tested for real.
+parts (math, naming, weights, spatial queries, shape data...) be tested for real.
 """
 
 import os

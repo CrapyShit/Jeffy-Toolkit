@@ -1,13 +1,13 @@
-"""Jeffy Toolkit installer - drag and drop this file into a Maya viewport.
+"""Jeff Inventory installer - drag and drop this file into a Maya viewport.
 
 It writes a Maya *module* file (``jeffy_toolkit.mod``) into your user modules
 folder that points at this repository, so:
 
-* the toolkit loads automatically in every future Maya session,
+* Jeff Inventory loads automatically in every future Maya session,
 * updating is just ``git pull`` (or replacing the folder) - no reinstall,
 * uninstalling is deleting the ``.mod`` file (see :func:`uninstall`).
 
-The toolkit is also loaded immediately, the "Jeffy" menu is created and the
+It is also loaded immediately, the "Jeff Inventory" menu is created and the
 window opens.
 """
 
@@ -62,7 +62,7 @@ def install(open_window=True):
     jeffy.install_menu()
     if open_window:
         jeffy.show()
-    cmds.inViewMessage(assistMessage="<hl>Jeffy Toolkit %s</hl> installed" % jeffy.__version__,
+    cmds.inViewMessage(assistMessage="<hl>Jeff Inventory %s</hl> installed" % jeffy.__version__,
                        position="topCenter", fade=True)
     print("[Jeffy] Module file written to %s" % mod_path)
     return mod_path

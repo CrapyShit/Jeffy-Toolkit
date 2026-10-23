@@ -1,4 +1,4 @@
-"""Single source of truth for the Jeffy Toolkit version.
+"""Single source of truth for the Jeff Inventory version.
 
 The project follows Semantic Versioning (https://semver.org):
 
@@ -9,6 +9,6 @@ The project follows Semantic Versioning (https://semver.org):
 Remember to add an entry to ``CHANGELOG.md`` whenever this number changes.
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 VERSION_INFO = tuple(int(part) for part in __version__.split("."))

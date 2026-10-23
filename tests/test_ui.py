@@ -1,5 +1,5 @@
-"""UI wiring tests: every action referenced by the UI exists, and the whole
-window can be built offscreen (with a fake Maya)."""
+"""UI wiring tests: every action referenced by the menu, the shelf and the
+Utilities panel exists (the window itself is built in ``test_setups``)."""
 
 import ast
 import os
@@ -39,26 +39,6 @@ def _referenced_actions():
 def test_action_exists(filename, name):
     assert hasattr(actions, name), "%s references missing action %s" % (filename, name)
     assert getattr(getattr(actions, name), "tool_label", None), "%s is not decorated with @tool" % name
-
-
-def test_window_builds_offscreen():
-    qt = pytest.importorskip("jeffy.ui.qt")
-    app = qt.QtWidgets.QApplication.instance() or qt.QtWidgets.QApplication([])
-    from jeffy.ui import main_window
-
-    window = main_window.JeffyToolkitWindow()
-    titles = [window.tabs.tabText(i) for i in range(window.tabs.count())]
-    assert titles == ["Controls", "Joints", "Rigging", "Deform", "Face", "Attributes", "Naming", "Auto-Rig", "Animate",
-                      "Utilities"]
-    for index in range(window.tabs.count()):
-        page = window.tabs.widget(index)
-        assert not isinstance(page, qt.QtWidgets.QLabel), "page %d failed" % index
-        # widgets stored on pages must not shadow Qt methods (e.g. self.size)
-        shadowed = [name for name, value in vars(page).items()
-                    if isinstance(value, qt.QtCore.QObject) and hasattr(qt.QtWidgets.QScrollArea, name)]
-        assert not shadowed, "%s shadows Qt attributes: %s" % (type(page).__name__, shadowed)
-    window.close()
-    del app
 
 
 def test_shape_icons_render():

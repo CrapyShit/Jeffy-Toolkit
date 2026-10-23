@@ -1,2 +1,1 @@
-"""Geometry helpers: meshes, curves, surfaces, symmetry, spatial queries and
-proxy geometry generation."""
+"""Geometry helpers: curves, meshes and spatial queries."""

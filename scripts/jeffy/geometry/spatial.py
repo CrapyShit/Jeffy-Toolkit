@@ -1,6 +1,6 @@
 """Pure Python spatial hash for fast nearest neighbour queries.
 
-Used for symmetry maps, position based weight transfer and closest point
+Used for position based weight transfer and closest point
 lookups on point clouds of tens of thousands of points.
 """
 

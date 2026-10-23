@@ -29,7 +29,7 @@ MODULES = _module_names()
 
 
 def test_found_modules():
-    assert len(MODULES) > 60
+    assert len(MODULES) > 40
 
 
 @pytest.mark.parametrize("name", MODULES)
