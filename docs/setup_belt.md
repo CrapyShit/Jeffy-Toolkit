@@ -1,7 +1,8 @@
 # Setup Belt
 
-Status: **stage 1 built**: the framework, the window, Rig Base, FK Chain,
-IK/FK Limb and Spaces. Stages 2 and 3 are planned below.
+Status: **all three stages built**. BUILD: Rig Base, FK Chain, IK/FK Limb
+(with auto-snap), Spline IK/FK (spine, neck, chain), Aim, Hand / Fingers,
+Jaw / Hinge. LAYERS: Ribbon, Twist, Reverse Foot, Fleshy Lids, Spaces.
 
 ## Quick start
 
@@ -33,11 +34,61 @@ leg = IkFkLimb.build(start="L_hip_JNT", mid="L_knee_JNT", end="L_ankle_JNT", nam
 Spaces.build(control="L_armIK_CTL", targets=["C_root_CTL", "C_global_CTL"], mode="parent")
 arm = arm.rebuild(options={"game_safe": True})            # layers on top are rebuilt too
 toggle("L_armIK_CTL", key=True)                            # IK/FK snap + switch
+
+from jeffy.setups.tools.ribbon import Ribbon
+from jeffy.setups.tools.twist import Twist
+from jeffy.setups.tools.foot import ReverseFoot
+
+Ribbon.build(base="L_armIK_CTL", joints=5)                 # or Twist.build(base="L_armIK_CTL", count=3)
+ReverseFoot.build(base="L_legIK_CTL", ball="L_ball_JNT", toe="L_toe_JNT")
+
+from jeffy.setups.tools.spline import SplineIkFk
+from jeffy.setups.tools.aim import Aim
+from jeffy.setups.tools.lids import FleshyLids
+from jeffy.setups.tools.jaw import Jaw
+from jeffy.setups.tools.hand import Hand
+
+SplineIkFk.build(start="C_spine01_JNT", end="C_chest_JNT", pelvis="C_pelvis_JNT")             # spine
+SplineIkFk.build(start="C_neck01_JNT", end="C_neck03_JNT", head="C_head_JNT", mode="neck")
+SplineIkFk.build(start="C_tail01_JNT", end="C_tail06_JNT", mode="chain", name="tail")
+Aim.build(joints=["L_eye_JNT", "R_eye_JNT"])
+FleshyLids.build(base="L_eyeFK_CTL", eye="L_eye_JNT", upper=["L_upperLid_JNT"], lower=["L_lowerLid_JNT"])
+Jaw.build(jaw="C_jaw_JNT")
+Hand.build(wrist="L_wrist_JNT", fingers=["L_thumb01_JNT", "L_indexMeta_JNT", "L_middleMeta_JNT"], ik=True)
 arm.delete()                                               # joints back to their rest pose
 ```
 
 Tests in real Maya: `mayapy tests/in_maya/run.py` (headless, builds every tool
 on a test skeleton).
+
+## Decisions made while building stage 3
+
+- **Spline**: the joints take their position from a hidden chain on a spline
+  IK along the ribbon (exact bone lengths when `stretch` is 0) and their
+  orientation / twist from the ribbon (`uvPin`).
+- **Head** orientation follows the neck by default (`space`: neck, chest,
+  COG, root, world). The tail **wave** animates with time (FK controls).
+- **Hand** is a build tool on the wrist joint (it follows whatever drives the
+  wrist). Metacarpals: *auto* (chains of 5 joints or more), all, all but the
+  thumb, or none. The poses and master controls rotate the controls' `ZRO`
+  through its `offsetParentMatrix` instead of an extra `POSE` group, so
+  `ZRO > OFF > CTL` stays the only hierarchy and `OFF` stays yours.
+- **Jaw** is driven by a **chin control you translate** (down opens, X
+  swings, Z slides), with clamps on the control.
+- **Fleshy Lids** take one or many joints per lid and add a control per lid.
+
+## Decisions made while building stage 2
+
+- **Auto-snap** (*FK follows IK / IK follows FK*): changing `ikFk` (on the
+  settings control or any control's proxy) snaps the side you switch to onto
+  the other one, so the bend is kept. It is a callback installed by the
+  toolkit, and a script node (`jeffySetupBelt_autoSnap_SN`) reinstalls it when
+  the scene opens. `autoSnap` on the settings control turns it off. Keyed
+  switches during playback are not snapped.
+- **Reverse Foot** uses a dedicated **roll control** (rotateX roll, rotateZ
+  bank, rotateY ball twist) plus grabbable ground pivots, instead of
+  attributes on the IK control. The other attributes are on the roll control.
+- **Twist** and **Ribbon** are exclusive on a setup (the ribbon twists already).
 
 ## Decisions made while building stage 1
 
@@ -220,85 +271,87 @@ The **Spaces** tool edits them later, on any control.
   - hidden IK and FK chains blended by `blendMatrix`
 - Animation: seamless IK->FK / FK->IK snap, with an option to key it.
 
-**4. Spline IK/FK**: spine, neck, tail, tentacle
-- Modes:
-  - **Spine**: slots Pelvis (optional), Start, End.
-  - **Neck**: slots Neck start, Neck end, Head.
-  - **Chain**: slots Start, End.
-- Inside: a hidden NURBS ribbon with `uvPin` (stable twist, no flipping).
-- Spine:
-  - **COG** moves everything; **hips** rotate the pelvis on their own.
-  - Hips, mid and chest IK controls, with an FK control layer on top.
-- Neck: mid bend control, neck stretch, head orient isolation (neck / chest /
-  COG / world).
-- Chain (tail/tentacle):
-  - IK and FK with a switch, any number of IK and FK controls.
-  - **Wave** attributes (amplitude, wavelength, speed/offset, falloff),
-    built from native `sin` nodes, no expressions.
-- All modes: squash & stretch with a stretch amount, and volume preservation
-  with a falloff along the chain.
+**4. Spline IK/FK** (built): spine, neck, tail, tentacle
+- Slots: Start, End (3 joints or more), Pelvis (spine, optional), Head (neck,
+  optional). Option *Mode*: spine / neck / chain.
+- Inside: a hidden NURBS ribbon shaped by the IK controls (each control holds
+  its tangents, so rotating it bends the chain) with `uvPin` (stable twist),
+  and a hidden spline IK chain for the lengths.
+- Spine: **COG** (role `cog`) moves everything; **hips** (role `hips`) rotate
+  the pelvis on their own; IK controls hips / mid / chest (role `chest`) under
+  an FK layer.
+- Neck: FK layer, IK base / mid, and a **head** control: the neck's top, with
+  orient spaces (neck by default, chest, COG, root, world).
+- Chain: FK on every joint and IK controls, `ikFk` on a settings control, and
+  the **wave** (`waveAmplitude`, `waveLength`, `waveSpeed`, `waveOffset`,
+  `waveFalloff`) on the FK controls, animated by time with native `sin` nodes.
+- All modes: `stretch` (0 keeps the length) and `volume` (film).
 
-**5. Aim**: eyes, also pistons and look-at parts
-- Slots: aim joints (a list, 2 eyes or more), Head (optional).
-- Guides: target distance.
-- Options: aim/up axis (detected, can be overridden), FK override on each
-  eye, `aim` on/off per eye.
-- Creates: master target, one target per joint, `aimMatrix` network. Space:
-  head / world.
+**5. Aim** (built): eyes, also pistons and look-at parts
+- Slots: the eye joints (2 or more). They follow the setup driving their
+  parent (the head).
+- Guide: the target. Options: look direction, default target distance.
+- Creates: a master target (spaces: parent / world / root), one target per
+  eye, and an FK control per eye on top of the aim (`aim` 0..1).
 
-**6. Jaw / Hinge**: jaw, also prop lids and doors
-- Slots: Jaw joint, Chin/end joint (optional, places the control), Head
-  (optional).
-- Options: open / side / forward, with clamps so it can't go too far, and an
-  `open` attribute.
+**6. Jaw / Hinge** (built): jaw, also prop lids and doors
+- Slots: Jaw joint, Chin joint (optional: the jaw's child).
+- A **chin control** you translate: down (-Y) opens, X swings, Z slides
+  forward / back; clamps `openMax`, `closeMax`, `sideMax`, `forwardMax`,
+  `backMax` and an `open` attribute (degrees) on the control.
+
+**7. Hand / Fingers** (built, also toes)
+- Slots: Wrist (the hand's root joint), Fingers (first joint of each finger,
+  thumb first).
+- Options: metacarpals (auto / all / all but thumb / none), IK fingers,
+  controls on the tips, flip curl direction.
+- Creates: FK controls per joint, metacarpal controls, a **master** control
+  per finger, a **hand** control with `curl`, `spread`, `fist`, `relax`,
+  `cup` and `<finger>Curl` / `<finger>Ik`.
+- IK fingers: a planar IK on the first three phalanges, an IK tip control
+  (spaces: hand / world / root) to keep a fingertip on a surface.
 
 ### Layer tools (build on a setup)
 
-**7. Ribbon** (bendy)
+**8. Ribbon** (bendy, built)
 - Base: an IK/FK Limb or a FK Chain with 2+ segments.
-- Options: deform joints per segment (default 5), bend controls (mid-upper,
-  elbow/knee, mid-lower), twist distribution, squash & stretch, game safe.
-- Creates: ribbon surfaces with `uvPin`, its **own deform joints**, and the
-  bendy controls' visibility on the limb's settings control.
+- Options: deform joints per segment (default 5), bend controls, first segment
+  twist (from parent / follow joint), volume, game safe.
+- Creates: one NURBS ribbon per segment (its CVs ride on the outputs and bend
+  controls) with `uvPin`, its **own deform joints**, a bend control in the
+  middle of each segment and at each inner joint (elbow / knee). `bendyVis`
+  and `volume` go on the limb's settings control.
+- Game safe: the ribbon joints are parented under the bind joints (they
+  export) and get no volume scale. Otherwise they live in their own group.
 - You skin to the ribbon joints instead of the limb joints.
 
-**8. Twist**
-- Base: a limb setup, or two joints directly.
-- Options: count per segment; forward (forearm: twist from the end) or reverse
-  (upper arm: counter twist from the start).
-- Creates: twist joints parented under the segment start, driven by no-flip
-  swing/twist extraction.
-- Refuses a segment that already has a Ribbon (the ribbon handles twist there).
+**9. Twist** (built)
+- Base: an IK/FK Limb or FK Chain.
+- Options: joints per segment (3); first segment `counter` (the shoulder / hip
+  roll fades in along the bone), other segments `forward` (the end joint's
+  roll spreads along the bone), or `off`.
+- Creates: twist joints parented under each segment's first joint, driven by
+  `aimMatrix` frames blended along the bone.
+- Refuses a setup that already has a Ribbon (the ribbon handles twist there).
 
-**9. Reverse Foot**
+**10. Reverse Foot** (built)
 - Base: an IK/FK Limb. Slots: Ball, Toe tip (the ankle comes from the limb).
-- Guides: heel, inner bank, outer bank and toe tip pivots, placed on the ground
-  automatically. Move them, then Build.
-- Attributes on the IK control: `roll`, `rollBreak`, `rollStraight`, `bank`,
-  `heelTwist`, `ballTwist`, `toeTwist`, `toeTap`.
-- Also: **on-ground pivot controls** you can grab (visibility toggle), and a
-  ball FK control for FK mode.
-- The limb's IK handle moves under the foot pivots automatically.
+- Guides: heel, toe tip, inner, outer and the roll control, placed on the
+  ground automatically. Move them, then Build.
+- A **roll control** behind the heel: rotateX roll (heel below 0, ball up to
+  `rollBreak`, toe tip after, the ball straightens by `rollStraight`),
+  rotateZ bank (positive: outer edge), rotateY ball twist; attributes
+  `heelTwist`, `toeTwist`, `toeTap`, `rollBreak`, `rollStraight`, `pivotsVis`.
+- **Ground pivot controls** you can grab (heel, toe, outer, inner, ball, toe
+  tap), and an FK toe control under the limb's FK end control.
+- The limb's IK end moves under the foot pivots automatically; snapping and
+  auto-snap include the foot.
 
-**10. Hand / Finger poses** (also toes)
-- Base: a limb (or the wrist joint).
-- Slots: a list of finger roots (`[+ Add selected]`), with a *metacarpal* and a
-  *thumb* checkbox per row.
-- Creates:
-  - FK controls per phalanx
-  - a **master control** per finger that bends the whole finger
-  - metacarpal controls
-  - a hand control with `curl`, `spread`, `fist`, `relax`, `cup` and per-finger
-    curl
-- Pose attributes drive an extra `POSE` group on finger controls
-  (`ZRO > POSE > OFF > CTL`), so `OFF` stays yours.
-- Option: per-finger **IK/FK for contact** (IK tip control, space hand /
-  world).
-
-**11. Fleshy Lids**
-- Base: an Aim setup.
-- Slots: upper and lower lid joints per eye.
-- Lids follow the eye rotation by `eyeFollow` attributes (up/down, side).
+**11. Fleshy Lids** (built)
+- Base: an Aim setup. Slots: the eye, upper lid joint(s), lower lid joint(s).
+- Every lid joint turns around the eye by the eye's rotation scaled by
+  `eyeFollow` (up / down) and `sideFollow`, plus a control per lid (rotate it
+  to open / close).
 
 **12. Spaces**
 - Slots: control, targets (a list, pre-filled with the default candidates).
@@ -313,7 +366,7 @@ scripts/jeffy/setups/
     core/      schema.py (slots, options), tag.py (setup tag), base.py (Setup class: build/delete/rebuild/mirror),
                scene.py (registry, queries), controls.py (ZRO/OFF controls), drive.py (joint-orient-aware
                matrix driving of bind joints), attach.py (auto-attach + spaces), guides.py
-    tools/     rig_base, fk_chain, ikfk_limb, spaces   (stage 2-3: ribbon, twist, foot, spline, hand, aim, jaw, lids)
+    tools/     rig_base, fk_chain, ikfk_limb, spline, aim, hand, jaw, ribbon, twist, foot, lids, spaces
 scripts/jeffy/ui/setup_belt/
                window.py, panel.py (built from each tool's schema), setup_list.py, common.py
 tests/test_setups.py   pure-Python tests (schema, registry, window offscreen), run in CI
@@ -338,8 +391,8 @@ check that:
 1. **Foundation** (built): setup tag, Setup class, controls, matrix driving,
    auto-attach and spaces, guides, delete/rebuild; window, panels, setup
    list; **Rig Base, FK Chain, IK/FK Limb, Spaces**.
-2. **Ribbon, Twist, Reverse Foot**.
+2. **IK/FK auto-snap, Ribbon, Twist, Reverse Foot** (built).
 3. **Spline IK/FK** (spine, neck, tail), **Hand**, **Aim**, **Jaw / Hinge**,
-   **Fleshy Lids**.
+   **Fleshy Lids** (built).
 
 You test each stage in Maya before the next one starts.

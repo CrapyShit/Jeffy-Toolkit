@@ -21,15 +21,16 @@ REST_ATTR = "jeffyRest"
 
 
 def create(setup, key, label, shape="circle", size=1.0, axis="x", parent=None, match=None, world_matrix=None,
-           position=None, lock=("v",), secondary=False, color=None, role=None):
+           position=None, lock=("v",), secondary=False, color=None, role=None, side=None):
     """Create a control for ``setup`` and register it under ``key``.
 
     :param label: name part (``L_<label>_CTL``)
     :param match: node whose world transform the control takes
     :param world_matrix: or an explicit world matrix (16 floats)
     :param position: or only a world position (world orientation)
+    :param side: side of this control (default: the setup's side)
     """
-    ctl = Control.create(label, side=setup.side, shape=shape, size=size, axis=axis,
+    ctl = Control.create(label, side=side or setup.side, shape=shape, size=size, axis=axis,
                          parent=parent or setup.controls_group, match=match, position=position, lock=None,
                          offsets=OFFSETS, secondary=secondary, color_value=color)
     if world_matrix is not None:

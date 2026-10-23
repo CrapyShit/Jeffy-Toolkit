@@ -14,6 +14,11 @@ Knee / elbow: a **pole** control, or **no-flip** (no pole, the knee follows
 the IK control and a ``kneeTwist`` attribute aims it).
 
 Animation helpers: :func:`snap_fk_to_ik`, :func:`snap_ik_to_fk`, :func:`toggle`.
+
+**Auto-snap**: with ``autoSnap`` on (settings control), changing ``ikFk``
+snaps the side you switch to onto the other one, so the bend is kept. It runs
+from a callback installed by the toolkit (and by a script node when the scene
+is opened). Keyed switches during playback are not snapped.
 """
 
 import math
@@ -31,6 +36,13 @@ from jeffy.setups.core.schema import GAME_SAFE_OPTION, SIZE_OPTION, Option, Setu
 from jeffy.setups.tools import common
 
 SWITCH = "ikFk"
+AUTO_SNAP = "autoSnap"
+SCRIPT_NODE = "jeffySetupBelt_autoSnap_SN"
+SCRIPT = ("try:\n"
+          "    from jeffy.setups.tools import ikfk_limb\n"
+          "    ikfk_limb.install_auto_snap()\n"
+          "except Exception:\n"
+          "    pass\n")
 KEYS = ("start", "mid", "end")
 EPSILON = 1e-4
 FK_SPACES = ("parent", "chest", "hips", "cog", "root", "world")
@@ -155,6 +167,7 @@ class IkFkLimb(Setup):
         ik_ctl = self.control("ik", self.name + "IK", shape="cube", size=size * 0.07, axis="y",
                               world_matrix=ik_world, lock=("s", "v"))
         end_ref = self.group("IkEnd", parent=ik_ctl.node, world_matrix=worlds[2], visible=False)
+        tag_module.set_node(self.tag, "ik_end_ref", end_ref)
 
         pole_point = _pole_in_plane(points, guides_module.position(self.guides.get("pole")),
                                     options["pole_distance"])
@@ -169,6 +182,8 @@ class IkFkLimb(Setup):
         switch = attributes.add_attr(settings.node, SWITCH, "float", default=1.0 if options["default_mode"] == "ik"
                                      else 0.0, minimum=0.0, maximum=1.0)
         cmds.setAttr(switch, 1.0 if options["default_mode"] == "ik" else 0.0)
+        auto = attributes.add_attr(settings.node, AUTO_SNAP, "bool", default=True, keyable=False, channel_box=True)
+        cmds.setAttr(auto, True)
 
         # FK stretch -------------------------------------------------------
         if options["stretch"]:
@@ -259,6 +274,20 @@ class IkFkLimb(Setup):
         })
 
     # ------------------------------------------------------------------
+    @classmethod
+    def create(cls, *args, **kwargs):
+        setup = super(IkFkLimb, cls).create(*args, **kwargs)
+        _ensure_script_node()
+        install_auto_snap()
+        return setup
+
+    def delete(self, layers=True, mirror=False):
+        super(IkFkLimb, self).delete(layers=layers, mirror=mirror)
+        if not scene.all_setups(setup_type=IkFkLimb.TYPE):
+            remove_auto_snap()
+            if cmds.objExists(SCRIPT_NODE):
+                cmds.delete(SCRIPT_NODE)
+
     def _name(self, label, suffix="UTL"):
         return naming.compose(self.name + label, self.side, suffix)
 
@@ -272,21 +301,7 @@ class IkFkLimb(Setup):
 
     def _pole_vector(self, handle, sys_in, target):
         """``handle.poleVector`` = (target - start) in the handle's parent space (no constraint)."""
-        start = nodes.decompose_matrix(sys_in + ".worldMatrix[0]", name=self._name("PvStart", "DM"))
-        aim = nodes.decompose_matrix(target + ".worldMatrix[0]", name=self._name("PvTarget", "DM"))
-        vector = cmds.createNode("plusMinusAverage", name=naming.unique_name(self._name("PvVector", "PMA")),
-                                 skipSelect=True)
-        cmds.setAttr(vector + ".operation", 2)
-        cmds.connectAttr(aim + ".outputTranslate", vector + ".input3D[0]")
-        cmds.connectAttr(start + ".outputTranslate", vector + ".input3D[1]")
-        local = cmds.createNode("vectorProduct", name=naming.unique_name(self._name("PvLocal", "UTL")),
-                                skipSelect=True)
-        cmds.setAttr(local + ".operation", 3)  # vector * matrix
-        cmds.connectAttr(vector + ".output3D", local + ".input1")
-        parent_inverse = matrix.parent_inverse_plug(handle)
-        if parent_inverse:
-            cmds.connectAttr(parent_inverse, local + ".matrix")
-        cmds.connectAttr(local + ".output", handle + ".poleVector", force=True)
+        common.pole_vector(self.name, self.side, handle, sys_in, target)
 
     def _ik_goal(self, handle, sys_in, end_ref, ctl, pole, ik_joints, upper, lower):
         """Soft IK, stretch and pin: the handle position and the IK joint lengths.
@@ -506,11 +521,12 @@ def snap_fk_to_ik(limb, switch=True, key=False):
             cmds.setAttr(plug, mathlib.distance(points[index], points[index + 1]) / scale / rest)
     for ctl, target in zip(fk, targets):
         matrix.set_world_matrix(ctl, target, translate=False, scale=False)
+    keyed = list(fk) + _layer_hooks(setup, "snap_fk_to_ik")
     switch_plug = "%s.%s" % (ctls["settings"], SWITCH)
     if switch:
-        cmds.setAttr(switch_plug, 0.0)
+        _set_switch(setup, 0.0)
     if key:
-        _key(fk, switch_plug)
+        _key(keyed, switch_plug)
     return setup
 
 
@@ -525,6 +541,7 @@ def snap_ik_to_fk(limb, switch=True, key=False):
     worlds = [cmds.getAttr(ctl + ".worldMatrix[0]") for ctl in fk]
     points = [mathlib.get_translation(w) for w in worlds]
 
+    keyed = [ik_ctl, pole] + _layer_hooks(setup, "reset_ik")
     for attr in RESET_ON_SNAP:
         if cmds.attributeQuery(attr, node=ik_ctl, exists=True) and attributes.is_settable(ik_ctl, attr):
             cmds.setAttr("%s.%s" % (ik_ctl, attr), 0.0)
@@ -541,11 +558,12 @@ def snap_ik_to_fk(limb, switch=True, key=False):
         cmds.xform(pole, worldSpace=True, translation=target)
     elif cmds.attributeQuery("kneeTwist", node=ik_ctl, exists=True):
         _match_knee_twist(setup, ik_ctl, points[1])
+    keyed += _layer_hooks(setup, "snap_ik_to_fk")
     switch_plug = "%s.%s" % (ctls["settings"], SWITCH)
     if switch:
-        cmds.setAttr(switch_plug, 1.0)
+        _set_switch(setup, 1.0)
     if key:
-        _key([ik_ctl, pole], switch_plug)
+        _key(keyed, switch_plug)
     return setup
 
 
@@ -567,6 +585,104 @@ def _match_knee_twist(setup, ik_ctl, target):
         else:
             low = a
     cmds.setAttr(plug, (low + high) * 0.5)
+
+
+def _layer_hooks(setup, hook):
+    """Let layers (reverse foot...) take part in snapping. Returns nodes to key."""
+    nodes_to_key = []
+    for layer in setup.all_layers():
+        method = getattr(layer, hook, None)
+        if method is not None:
+            nodes_to_key.extend(method(setup) or [])
+    return nodes_to_key
+
+
+def _set_switch(setup, value):
+    """Set ``ikFk`` without triggering the auto-snap callback."""
+    _AUTO["busy"] = True
+    try:
+        cmds.setAttr("%s.%s" % (setup.controls["settings"], SWITCH), value)
+    finally:
+        _AUTO["busy"] = False
+    _AUTO["values"][setup.tag] = value
+
+
+# ---------------------------------------------------------------------------
+# Auto-snap (callbacks on ikFk)
+# ---------------------------------------------------------------------------
+_AUTO = {"callbacks": [], "values": {}, "busy": False}
+
+
+def install_auto_snap():
+    """Watch ``ikFk`` on every IK/FK limb of the scene (safe to call again)."""
+    from maya.api import OpenMaya as om
+
+    remove_auto_snap()
+    for limb in scene.all_setups(setup_type=IkFkLimb.TYPE):
+        ctls = limb.controls
+        settings = ctls.get("settings")
+        if not settings:
+            continue
+        _AUTO["values"][limb.tag] = cmds.getAttr("%s.%s" % (settings, SWITCH))
+        watched = [settings]
+        for owner in [limb] + limb.all_layers():
+            for node in owner.controls.values():
+                if node not in watched and cmds.attributeQuery(SWITCH, node=node, exists=True):
+                    watched.append(node)
+        for node in watched:
+            selection = om.MSelectionList()
+            selection.add(node)
+            _AUTO["callbacks"].append(om.MNodeMessage.addAttributeChangedCallback(
+                selection.getDependNode(0), _on_attribute, limb.tag))
+    return len(_AUTO["callbacks"])
+
+
+def remove_auto_snap():
+    from maya.api import OpenMaya as om
+
+    for callback in _AUTO["callbacks"]:
+        try:
+            om.MMessage.removeCallback(callback)
+        except RuntimeError:
+            pass
+    _AUTO["callbacks"] = []
+    _AUTO["values"].clear()
+
+
+def _on_attribute(message, plug, _other, limb_tag):
+    from maya.api import OpenMaya as om
+
+    if _AUTO["busy"] or not (message & om.MNodeMessage.kAttributeSet):
+        return
+    if plug.partialName(useLongNames=True) != SWITCH or not cmds.objExists(limb_tag):
+        return
+    setup = scene.wrap(limb_tag)
+    settings = setup.controls.get("settings") if setup is not None else None
+    if not settings:
+        return
+    new = cmds.getAttr("%s.%s" % (settings, SWITCH))
+    old = _AUTO["values"].get(limb_tag, new)
+    _AUTO["values"][limb_tag] = new
+    if abs(new - old) < 1e-6 or not cmds.getAttr("%s.%s" % (settings, AUTO_SNAP)):
+        return
+    if cmds.play(query=True, state=True):
+        return
+    _AUTO["busy"] = True
+    try:
+        if new > old:
+            snap_ik_to_fk(setup, switch=False)
+        else:
+            snap_fk_to_ik(setup, switch=False)
+    except Exception as error:  # never break the user's channel box edit
+        cmds.warning("[Jeffy] auto-snap failed on %s: %s" % (setup.describe(), error))
+    finally:
+        _AUTO["busy"] = False
+
+
+def _ensure_script_node():
+    """Reinstall the callbacks when the scene is opened (script node, python)."""
+    if not cmds.objExists(SCRIPT_NODE):
+        cmds.scriptNode(name=SCRIPT_NODE, scriptType=1, beforeScript=SCRIPT, sourceType="python")
 
 
 def toggle(node, key=False):

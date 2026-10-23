@@ -377,10 +377,10 @@ class Setup(object):
     # Build helpers (call them from build_setup)
     # ------------------------------------------------------------------
     def control(self, key, label, shape="circle", size=1.0, axis="x", parent=None, match=None, world_matrix=None,
-                position=None, lock=("v",), secondary=False, color=None, role=None):
+                position=None, lock=("v",), secondary=False, color=None, role=None, side=None):
         return controls.create(self, key, label, shape=shape, size=size, axis=axis, parent=parent, match=match,
                                world_matrix=world_matrix, position=position, lock=lock, secondary=secondary,
-                               color=color, role=role)
+                               color=color, role=role, side=side)
 
     def register_control(self, key, node):
         tag_module.add_nodes(self.tag, "controls", [node])
@@ -670,6 +670,9 @@ class Setup(object):
         self.after_release()
         owned = tag_module.get_nodes(self.tag, "owned")
         self._rescue_children(owned)
+        # utility (DG) nodes first: nothing is left to re-evaluate when the surfaces / curves go
+        owned = [node for node in owned if cmds.objExists(node) and not cmds.objectType(node, isAType="dagNode")] + \
+            [node for node in owned if cmds.objExists(node) and cmds.objectType(node, isAType="dagNode")]
         for node in owned:
             if cmds.objExists(node):
                 try:
