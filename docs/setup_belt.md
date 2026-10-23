@@ -395,7 +395,8 @@ The node list comes from the setup's tag.
   Delete removes that empty one again; it is kept once it has targets. The
   blendShape must come before the skinCluster.
 - Options: controls (8; on a closed loop with an even count both corners get
-  one), bind joints (20), ribbon width (auto), master control, jaw follow
+  one), bind joints (20), control shape (sphere, circle, cube, diamond,
+  octahedron, square, locator), ribbon width (auto), master control, jaw follow
   defaults (upper 0, corners 0.5, lower 1), size, game safe.
 - Creates:
   - controls along the loop that **follow the blendShape** (their channels

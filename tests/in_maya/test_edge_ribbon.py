@@ -82,6 +82,8 @@ def test_edge_ribbon_follows_blendshape_without_double_transform():
                      "L_lipsUpper_CTL", "C_lipsMaster_CTL"):
         assert expected in names, (expected, names)
     assert len(lips.bind_joints()) == 20
+    spheres = len(cmds.listRelatives("C_lipsUpper_CTL", shapes=True))
+    assert spheres > 1, "sphere controls by default (several curves)"
 
     # the controls follow the blendShape, their channels stay at 0
     upper = "C_lipsUpper_CTL"
@@ -216,7 +218,8 @@ def test_edge_ribbon_open_chain_mirrors():
                   cmds.ls(cmds.polyListComponentConversion(edge, toVertex=True), flatten=True)]
         if all(abs(p[1] - 170) < 1e-3 and 1.5 < p[0] < 5.5 for p in points):
             chain.append(edge)
-    brow = EdgeRibbon.build(base="C_jawChin_CTL", edges=chain, name="brow", control_count=3, joint_count=5)
+    brow = EdgeRibbon.build(base="C_jawChin_CTL", edges=chain, name="brow", control_count=3, joint_count=5,
+                            control_shape="cube")
     assert brow.side == "L"
     other = brow.mirror
     assert other is not None and other.side == "R"

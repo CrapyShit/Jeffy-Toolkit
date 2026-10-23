@@ -49,6 +49,8 @@ _STASH = {}
 #: R side controls: X points outward (-X), Y up, so both sides move the same way
 _RIGHT_FRAME = mathlib.from_axes((-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, -1.0))
 OUTLINE_SCALE = 1.3
+#: shapes offered for the ribbon controls (names from the control shape library)
+CONTROL_SHAPES = ("sphere", "circle", "cube", "diamond", "octahedron", "square", "locator")
 
 
 @scene.register
@@ -73,6 +75,8 @@ class EdgeRibbon(Setup):
         Option("control_count", "Controls", 8, minimum=2, maximum=40,
                tip="Controls along the loop. On a closed loop with an even count, both corners get one."),
         Option("joint_count", "Bind joints", 20, minimum=2, maximum=200),
+        Option("control_shape", "Control shape", "sphere", choices=CONTROL_SHAPES,
+               tip="Shape of the ribbon controls (the master keeps its outline)"),
         Option("width", "Ribbon width", 0.0, minimum=0.0, maximum=1000.0, step=0.1,
                tip="0 = automatic (4% of the loop length)"),
         Option("master", "Master control", True,
@@ -194,7 +198,8 @@ class EdgeRibbon(Setup):
             cmds.setAttr("%s.inputMatrix[%d]" % (pin, i), mathlib.mult(rest, mathlib.inverse(mesh_world)),
                          type="matrix")
             pin_plug = "%s.outputMatrix[%d]" % (pin, i)
-            ctl = self.control("c%02d" % i, label, shape="circle", size=size, axis="z", world_matrix=rest,
+            ctl = self.control("c%02d" % i, label, shape=options["control_shape"], size=size, axis="z",
+                               world_matrix=rest,
                                lock=("s", "v"), secondary=True, side=ctl_side)
             if master is not None:
                 ctl.set_parent_tag(master.node)
