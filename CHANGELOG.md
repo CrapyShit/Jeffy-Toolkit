@@ -7,6 +7,17 @@ documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Node Editor tab per setup.** Building or rebuilding a setup opens a Node
+  Editor tab named after it (for example `L_arm_IkFkLimb`). The tab shows only
+  that setup's main nodes, laid out left to right: inputs, then matrix nodes,
+  then outputs and bind joints. Deleting the setup removes the tab. This can be
+  turned off in the Setups list.
+
+### Fixed
+- The IK/FK Limb's auto-snap script node is created before the build, so it no
+  longer lands in the setup's node list.
+
 ## [2.0.0] - 2026-10-23
 
 ### Changed

@@ -31,6 +31,18 @@ from jeffy.setups.core.schema import SetupError
 NO_RIG_MESSAGE = "No Rig Base found for these joints. Build a Rig Base first (BUILD > Rig Base)."
 
 
+def _notify(hook, setup):
+    """Tell the Node Editor tabs a setup was built / is being deleted (never breaks a build)."""
+    try:
+        from jeffy.ui.setup_belt import node_tabs
+    except ImportError:  # no Qt (batch tools): nothing to show
+        return
+    try:
+        getattr(node_tabs, hook)(setup)
+    except Exception as error:  # a UI problem must not stop building or deleting
+        cmds.warning("[Jeffy] Node Editor tab for %s: %s" % (setup.describe(), error))
+
+
 class Setup(object):
     TYPE = "setup"
     LABEL = "Setup"
@@ -232,6 +244,8 @@ class Setup(object):
             tag_module.set_node(_mirror_of.tag, "mirror", setup.tag)
         elif cls.MIRRORABLE and options.get("mirror") and side in (naming.SIDE_LEFT, naming.SIDE_RIGHT):
             setup._build_mirror(rig_setup)
+        # last: the Node Editor adds nodes created while a tab is active to that tab
+        _notify("on_built", setup)
         return setup
 
     @classmethod
@@ -660,6 +674,7 @@ class Setup(object):
             partner.delete(layers=layers, mirror=False)
 
     def _delete_self(self):
+        _notify("on_deleted", self)
         self.before_delete()
         attach.clear(self)
         driven = tag_module.get_nodes(self.tag, "driven", keep_empty=True)

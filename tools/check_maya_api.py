@@ -38,6 +38,13 @@ API_MODULES = {
 }
 
 
+#: UI commands maya-stubs does not describe (flags from Maya's own scripts and docs)
+EXTRA_COMMANDS = {
+    "nodeEditor": ("edit", "query", "exists", "createTab", "closeTab", "renameTab", "activeTab", "addNode",
+                   "rootNode", "getNodeList", "removeNode", "dotFormat", "frameAll", "layout"),
+}
+
+
 def find_stubs():
     candidates = []
     try:
@@ -225,6 +232,8 @@ def main(argv=None):
         return 2
 
     commands = parse_cmds(os.path.join(stubs, "cmds", "__init__.pyi"))
+    for name, flags in EXTRA_COMMANDS.items():
+        commands.setdefault(name, set(flags))
     api = {}
     for module, rel in API_MODULES.items():
         path = os.path.join(stubs, rel)
