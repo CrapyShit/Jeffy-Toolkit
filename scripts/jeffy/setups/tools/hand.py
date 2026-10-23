@@ -106,6 +106,11 @@ class Hand(Setup):
                    if middle else 0.0 for f in fingers]
         reach = max([abs(value) for value in spreads] + [1e-6])
 
+        for info in fingers:
+            info["curl_toward"] = palm
+            if info["thumb"]:
+                centre = mathlib.midpoint(common.position(wrist), middle) if middle else None
+                info["curl_toward"] = self._thumb_curl(info, palm, centre)
         for order, info in enumerate(fingers):
             rank = non_thumb.index(info) / float(max(len(non_thumb) - 1, 1)) if not info["thumb"] else 0.0
             finger_curl = attributes.add_attr(hand.node, info["label"] + "Curl", "float", default=0.0)
@@ -151,6 +156,37 @@ class Hand(Setup):
         if self.option("flip_curl"):
             normal = mathlib.scale(normal, -1.0)
         return normal
+
+    def _thumb_curl(self, info, palm, centre):
+        """Where the thumb curls to: its own bend plane, else across the palm.
+
+        The thumb sits turned about its bone compared with the other fingers,
+        so the palm's normal would bend it sideways. Its own knuckle bulge
+        (when the skeleton has it slightly bent) gives its real plane;
+        a straight thumb curls toward the centre of the palm (between the
+        wrist and the finger bases).
+        """
+        chain = info["phalanges"]
+        points = [common.position(joint) for joint in chain[:3]]
+        across = None
+        if centre is not None:
+            across = mathlib.sub(centre, points[0])
+            bone = mathlib.normalize(mathlib.sub(points[-1], points[0]))
+            across = mathlib.sub(across, mathlib.scale(bone, mathlib.dot(across, bone)))
+            if mathlib.length(across) > 1e-6:
+                across = mathlib.normalize(mathlib.add(mathlib.normalize(across), mathlib.scale(palm, 0.5)))
+            else:
+                across = None
+        if len(points) >= 3:
+            closest = mathlib.closest_point_on_line(points[1], points[0], points[2])
+            bulge = mathlib.sub(points[1], closest)
+            if mathlib.length(bulge) > mathlib.distance(points[0], points[2]) * 0.02:
+                own = mathlib.normalize(mathlib.scale(bulge, -1.0))  # the knuckle sticks out to the back
+                if self.option("flip_curl"):
+                    own = mathlib.scale(own, -1.0)
+                if across is None or mathlib.dot(own, across) > -0.2:  # trust it unless it bends away
+                    return own
+        return across or palm
 
     @staticmethod
     def _lateral(fingers):
@@ -199,7 +235,7 @@ class Hand(Setup):
         for index, ctl in enumerate(fk):
             joint = phalanges[index]
             next_joint = phalanges[index + 1] if index + 1 < len(phalanges) else None
-            axis, sign = _bend_axis(joint, next_joint, palm)
+            axis, sign = _bend_axis(joint, next_joint, info["curl_toward"])
             bend = _scaled_sum(self._n("%sBend%d" % (label, index), "UTL"), [
                 (poses["curl"], DEGREES), (finger_curl, DEGREES), (poses["fist"], DEGREES * fist_weight),
                 (poses["relax"], DEGREES * relax_weight * (1.0 - 0.15 * index))])
@@ -232,7 +268,7 @@ class Hand(Setup):
             self.add_output(label + "Meta", meta_ctl.node + ".worldMatrix[0]", joint=info["meta"],
                             label=common.label(info["meta"]))
         if ik_attr:
-            self._ik_finger(label, phalanges, root_group, size, palm, ik_attr)
+            self._ik_finger(label, phalanges, root_group, size, info["curl_toward"], ik_attr)
 
     # ------------------------------------------------------------------
     # IK fingers
