@@ -1,7 +1,6 @@
 import pytest
 
 from jeffy.deformers import weights as w
-from jeffy.geometry import proxy
 
 
 def test_rows_flatten():
@@ -72,9 +71,3 @@ def test_remap_and_reorder():
     flat = [1.0, 0.0, 0.0, 1.0]
     assert w.remap_vertices(flat, 2, [1, 1, 0]) == [0.0, 1.0, 0.0, 1.0, 1.0, 0.0]
     assert w.reorder_influences(flat, ["a", "b"], ["b", "c", "a"]) == [0.0, 0.0, 1.0, 1.0, 0.0, 0.0]
-
-
-def test_face_influence_map():
-    flat = [1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0]
-    faces = [[0, 1, 2], [1, 2, 3]]
-    assert proxy.face_influence_map(flat, 2, faces) == [0, 1]

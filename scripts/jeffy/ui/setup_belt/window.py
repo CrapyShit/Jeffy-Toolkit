@@ -1,16 +1,18 @@
-"""The Setup Belt window: tool list on the left, the selected tool's panel on the right."""
+"""The Jeff Inventory window (the Setup Belt): tool list on the left, the selected tool's panel on the right."""
 
-from jeffy import __version__
+from jeffy import TOOLKIT_NAME, __version__
 from jeffy.core import logger, settings
 from jeffy.setups.core import scene
 from jeffy.ui.qt import QtCore, QtWidgets, delete_workspace_control, dockable_base, maya_main_window
 from jeffy.ui.setup_belt.panel import ToolPanel
 from jeffy.ui.setup_belt.setup_list import SetupsPanel
+from jeffy.ui.setup_belt.utilities import UtilitiesPanel
 
 LOG = logger.get_logger("setup_belt")
 OBJECT_NAME = "jeffySetupBeltWindow"
 CATEGORIES = (("base", "BUILD"), ("build", None), ("layer", "LAYERS"))
 SETUPS_KEY = "__setups__"
+UTILITIES_KEY = "__utilities__"
 
 _MIXIN = dockable_base()
 _BASES = (QtWidgets.QWidget,) if _MIXIN is object else (_MIXIN, QtWidgets.QWidget)
@@ -21,7 +23,7 @@ class SetupBeltWindow(*_BASES):
     def __init__(self, parent=None):
         super(SetupBeltWindow, self).__init__(parent=parent or maya_main_window())
         self.setObjectName(OBJECT_NAME)
-        self.setWindowTitle("Jeffy Setup Belt %s" % __version__)
+        self.setWindowTitle("%s %s" % (TOOLKIT_NAME, __version__))
         self.setWindowFlags(QtCore.Qt.Window)
         self.setMinimumSize(520, 480)
         self.resize(700, 680)
@@ -56,6 +58,12 @@ class SetupBeltWindow(*_BASES):
         self._header("SCENE")
         self.setups_panel = SetupsPanel(window=self)
         self._add("Setups", SETUPS_KEY, self.setups_panel, "Every setup in the scene")
+        try:
+            utilities = UtilitiesPanel()
+        except Exception as error:  # a broken panel must not break the window
+            LOG.exception("Could not build the Utilities panel: %s", error)
+            utilities = QtWidgets.QLabel("Panel failed to load: %s" % error)
+        self._add("Utilities", UTILITIES_KEY, utilities, "Control shapes and skin weights")
 
         self.tool_list.currentItemChanged.connect(self._on_tool)
         last = settings.get("belt_last_tool") or "ikfk_limb"

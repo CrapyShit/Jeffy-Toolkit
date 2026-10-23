@@ -1,4 +1,4 @@
-"""The "Jeffy" menu in Maya's main menu bar."""
+"""The "Jeff Inventory" menu in Maya's main menu bar."""
 
 from maya import cmds
 
@@ -18,12 +18,6 @@ def _act(name, *args, **kwargs):
     return command
 
 
-def _show(*_unused):
-    import jeffy
-
-    jeffy.show()
-
-
 def _reload(*_unused):
     import jeffy
 
@@ -31,121 +25,24 @@ def _reload(*_unused):
 
 
 def _about(*_unused):
-    cmds.confirmDialog(title=TOOLKIT_NAME, message="%s %s\nA Maya rigging toolkit.\n\nimport jeffy; jeffy.show()"
-                       % (TOOLKIT_NAME, __version__), button=["OK"])
+    cmds.confirmDialog(title=TOOLKIT_NAME, message="%s %s\nStackable setup tools for your own skeleton.\n\n"
+                       "import jeffy; jeffy.show()" % (TOOLKIT_NAME, __version__), button=["OK"])
 
 
 MENU = [
-    ("Controls", [
-        ("Create Control On Selection", _act("create_controls", shape="circle", axis="x")),
-        ("Create Cube Control", _act("create_controls", shape="cube")),
-        ("Replace Shape: Circle", _act("replace_shapes", "circle", None, "x")),
+    ("Control Shapes", [
         ("Mirror Shapes L <> R", _act("mirror_shapes")),
         ("Copy Shape First > Rest", _act("copy_shape")),
         ("Scale Shapes Up", _act("scale_shapes", 1.25)),
         ("Scale Shapes Down", _act("scale_shapes", 0.8)),
+        ("Reset Color", _act("reset_color_selected")),
         (None, None),
-        ("Add Offset Group", _act("add_offset_group")),
-        ("Bake To Offset Parent Matrix", _act("bake_offset_parent_matrix")),
-        ("Match Transforms", _act("match_transforms")),
-        ("Mirror Transforms", _act("mirror_transforms")),
+        ("Export Shapes", _act("export_shapes")),
+        ("Import Shapes", _act("import_shapes")),
     ]),
-    ("Joints", [
-        ("Joints At Selection (chain)", _act("joints_at_selection", True)),
-        ("Joint At Center Of Selection", _act("joints_at_selection", False, True)),
-        ("Insert Joint", _act("insert_joints", 1)),
-        ("Orient Joints (plane, X aim / Y up)", _act("orient_joints", "x", "y", "plane")),
-        ("Orient Joints (world up)", _act("orient_joints", "x", "y", "world")),
-        ("Orient To World", _act("orient_to_world")),
-        ("Freeze Joint Rotations", _act("freeze_joint_rotations")),
-        ("Zero End Orients", _act("zero_end_orients")),
-        ("Planarize Chain", _act("planarize_chain")),
-        ("Mirror Joints (behavior, L_ > R_)", _act("mirror_joints")),
-        ("Toggle Local Axes", _act("toggle_local_axes", True)),
-        ("Label Joints", _act("label_joints")),
-    ]),
-    ("Rigging", [
-        ("FK Chain", _act("build_fk")),
-        ("IK Chain (stretch, soft)", _act("build_ik")),
-        ("IK/FK Limb", _act("build_ikfk")),
-        ("Spline IK", _act("build_spline")),
-        ("IK/FK Fingers (finger roots)", _act("build_finger_ikfk")),
-        ("Spline IK/FK Switch", _act("build_spline_ikfk")),
-        ("Ribbon", _act("build_ribbon")),
-        ("Twist Joints", _act("build_twist")),
-        ("Reverse Foot (IK control, foot joints)", _act("build_reverse_foot_auto")),
-        ("Reverse Foot From Chain (IK control, heel joint)", _act("build_reverse_foot_from_chain")),
-        ("Space Switch (control, then targets)", _act("add_space_switch")),
-        ("Matrix Constraint", _act("matrix_constraint")),
-        ("Rivet / Attach (follicle)", _act("attach_to_geometry", "follicle")),
-        ("Pose Reader", _act("create_pose_reader")),
-        ("Rig Structure", _act("create_rig_structure")),
-    ]),
-    ("Flexible Rig", [
-        ("Structure + Master", _act("create_flexible_structure")),
-        ("IK/FK Limb (root ... end joint)", _act("build_flexible_limb")),
-        ("Bind Helper Joints (limb control)", _act("add_flexible_bind_helpers")),
-        ("Direct Spine", _act("build_flexible_spine")),
-        ("FK Fingers (finger roots)", _act("build_flexible_fingers")),
-        ("Ribbon (start, middle, end)", _act("build_flexible_ribbon")),
-        ("Ribbon Crease Fix", _act("add_flexible_crease_fix")),
-        ("Reverse Foot (IK ctl, ankle, ball, toe, heel, in, out)", _act("build_flexible_foot")),
-    ]),
-    ("Face", [
-        ("Slider", _act("create_face_slider")),
-        ("Face Board From Blendshape (mesh)", _act("face_board_from_blendshape")),
-        ("On-Face Controls (vertices, then mesh)", _act("build_surface_controls")),
-        ("Face Ribbon From Edge Loop (lips, brows)", _act("build_face_ribbon")),
-        ("Curve Rig From Edge Loop (lids)", _act("build_face_curve_rig")),
-        ("Eyelid Blink (upper main, lower main)", _act("build_eyelid_blink")),
-        ("Lip Seal (upper main, lower main)", _act("build_lip_seal")),
-        ("Jaw (jaw joint [, upper lip main, lower lip main])", _act("build_face_jaw")),
-        ("Partial Follow (driver, then controls)", _act("add_partial_follow")),
-        ("Fleshy Eyes (eye, then lid mains)", _act("add_fleshy_eyes")),
-    ]),
-    ("Skin", [
-        ("Bind Skin", _act("bind_skin")),
-        ("Export Weights...", _act("export_skin_weights")),
-        ("Import Weights...", _act("import_skin_weights")),
-        ("Copy Skin", _act("copy_skin")),
-        ("Mirror Skin +X > -X", _act("mirror_skin", "x", True)),
-        ("Prune Weights", _act("prune_weights")),
-        ("Limit To 4 Influences", _act("limit_influences", 4)),
-        ("Remove Unused Influences", _act("remove_unused_influences")),
-        ("Rebind At Current Pose", _act("rebind_at_current_pose")),
-        (None, None),
-        ("Copy Vertex Weights", _act("copy_vertex_weights")),
-        ("Paste Vertex Weights", _act("paste_vertex_weights")),
-        ("Smooth Weights", _act("smooth_weights")),
-    ]),
-    ("Deformers", [
-        ("Soft Selection Cluster", _act("soft_selection_cluster")),
-        ("Wrap (driver last)", _act("create_wrap")),
-        ("Extract Blendshape Targets", _act("extract_blendshape_targets")),
-        ("Mirror Blendshape Target", _act("mirror_blendshape_target")),
-        ("Split Blendshape Target", _act("split_blendshape_target")),
-        ("Proxies From Skin", _act("proxies_from_skin")),
-    ]),
-    ("Animate", [
-        ("Reset Controls", _act("reset_controls")),
-        ("Mirror Pose", _act("mirror_pose")),
-        ("Flip Pose", _act("flip_pose")),
-        ("IK/FK Match + Switch", _act("ikfk_switch")),
-        ("Select All Controls", _act("select_all_controls")),
-    ]),
-    ("Auto-Rig", [
-        ("Biped Template", _act("create_template", "biped")),
-        ("Mirror Guides", _act("mirror_guides")),
-        ("Build Rig", _act("build_rig")),
-        ("Delete Rig", _act("delete_rig")),
-        ("Rebuild Rig", _act("rebuild_rig")),
-    ]),
-    ("Scene", [
-        ("Rig Check", _act("run_checks")),
-        ("Clean Scene", _act("clean_scene")),
-        ("Remove Namespaces", _act("remove_namespaces")),
-        ("Make Names Unique", _act("make_names_unique")),
-        ("Scene Report", _act("scene_report")),
+    ("Skin Weights", [
+        ("Export Skin Weights", _act("export_skin_weights")),
+        ("Import Skin Weights", _act("import_skin_weights")),
     ]),
 ]
 
@@ -155,9 +52,8 @@ def install():
     if cmds.about(batch=True):
         return None
     uninstall()
-    menu = cmds.menu(MENU_NAME, label="Jeffy", parent="MayaWindow", tearOff=True)
-    cmds.menuItem(label="Open Jeffy Toolkit", command=_show, parent=menu)
-    cmds.menuItem(label="Open Setup Belt", command=_act("show_setup_belt"), parent=menu)
+    menu = cmds.menu(MENU_NAME, label=TOOLKIT_NAME, parent="MayaWindow", tearOff=True)
+    cmds.menuItem(label="Open %s" % TOOLKIT_NAME, command=_act("show_setup_belt"), parent=menu)
     cmds.menuItem(divider=True, parent=menu)
     for title, entries in MENU:
         sub = cmds.menuItem(label=title, subMenu=True, tearOff=True, parent=menu)
@@ -168,7 +64,7 @@ def install():
                 cmds.menuItem(label=label_text, command=command, parent=sub)
     cmds.menuItem(divider=True, parent=menu)
     cmds.menuItem(label="Create Shelf", command=lambda *_: __import__("jeffy").install_shelf(), parent=menu)
-    cmds.menuItem(label="Reload Toolkit", command=_reload, parent=menu)
+    cmds.menuItem(label="Reload", command=_reload, parent=menu)
     cmds.menuItem(label="About", command=_about, parent=menu)
     return menu
 

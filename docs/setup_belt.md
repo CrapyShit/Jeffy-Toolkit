@@ -1,4 +1,4 @@
-# Setup Belt
+# Jeff Inventory: the Setup Belt
 
 Status: **all three stages built**. BUILD: Rig Base, FK Chain, IK/FK Limb
 (with auto-snap), Spline IK/FK (spine, neck, chain), Aim, Hand / Fingers,
@@ -8,8 +8,8 @@ Jaw / Hinge. LAYERS: Ribbon, Twist, Reverse Foot, Fleshy Lids, Spaces.
 
 1. Build your bind skeleton (joints only, named like `L_upperArm_JNT`). Bend
    elbows and knees slightly so the IK knows which way they bend.
-2. Open the belt: Jeffy menu > *Open Setup Belt*, the **BELT** shelf button, or
-   `import jeffy; jeffy.show_setup_belt()`.
+2. Open it: Jeff Inventory menu > *Open Jeff Inventory*, the **JEFF** shelf
+   button, or `import jeffy; jeffy.show()`.
 3. **Rig Base**: load your root joint, build. (Other tools offer to create it
    when it is missing.)
 4. Pick a tool, select the joints, press `[<]` on the first slot (selecting
@@ -104,20 +104,19 @@ on a test skeleton).
 - The **Spaces** tool can also rename the enum (*Attribute* option). Deleting
   the layer brings the default `space` enum back.
 - The belt sizes controls from your joint lengths (the *Control size* option
-  multiplies that). The main window's *Rig scale* does not apply.
+  multiplies that).
 
 ## What it is
 
-A separate, dockable **Jeffy Setup Belt** window: a belt of setup tools for
+A dockable **Jeff Inventory** window: a belt of setup tools for
 rigging by hand. You build the bind skeleton yourself (no controls, no
 setups). Then each tool turns the joints you give it into one clean, complete
 setup. Tools **stack**: a layer tool (ribbon, reverse foot, hand poses...)
 builds on top of a setup that already exists.
 
-It is not an auto-rigger and has no body-part templates or recipes. The
-existing Jeffy window and its tabs stay as they are. The belt reuses the
-toolkit's core (naming, attributes, control shapes, math) but not the old rig
-builders, which use constraints.
+It is not an auto-rigger and has no body-part templates or recipes. Next to
+the tools, SCENE > **Utilities** keeps the control shape tools and skin
+weights export / import. (The old Jeffy Toolkit tabs were removed in 2.0.0.)
 
 ## Decisions
 
@@ -232,8 +231,8 @@ The **Spaces** tool edits them later, on any control.
 - **Setups** (scene list): a tree of setups and their layers. Click one to load
   it back into its panel. It also has Select controls, Rebuild, Delete,
   IK/FK match and seamless space switch.
-- Opens from the Jeffy menu (*Open Setup Belt*), the **BELT** shelf button, or
-  `jeffy.show_setup_belt()`.
+- Opens from the Jeff Inventory menu, the **JEFF** shelf button, or
+  `jeffy.show()`.
 - Every tool is also a Python class, for example
   `IkFkLimb.build(start=..., mid=..., end=..., stretch=True)`.
 

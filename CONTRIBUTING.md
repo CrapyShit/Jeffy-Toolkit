@@ -1,6 +1,6 @@
-# Contributing / maintaining the Jeffy Toolkit
+# Contributing / maintaining Jeff Inventory
 
-This toolkit is meant to grow over time. This page explains where things go
+Jeff Inventory is meant to grow over time. This page explains where things go
 and how to ship an update safely.
 
 ## Setup
@@ -12,7 +12,7 @@ pip install pytest ruff maya-stubs PySide6-Essentials
 ```
 
 Inside Maya, install once with `install/drag_and_drop_install.py`. After
-editing code, click **Reload** in the window (or run `jeffy.reload_toolkit()`).
+editing code, use Jeff Inventory menu > **Reload** (or run `jeffy.reload_toolkit()`).
 
 ## Checks to run before every commit
 
@@ -24,7 +24,7 @@ QT_QPA_PLATFORM=offscreen python -m pytest     # tests (no Maya needed)
 
 CI runs the same three steps on every push.
 
-Scene behaviour (the Setup Belt builds) is tested in real Maya, headless:
+Scene behaviour (every tool's build) is tested in real Maya, headless:
 
 ```bash
 "C:/Program Files/Autodesk/Maya2027/bin/mayapy.exe" tests/in_maya/run.py   # -k name to filter
@@ -43,7 +43,9 @@ Scene behaviour (the Setup Belt builds) is tested in real Maya, headless:
   `cmds.joint`, which parents to the current selection).
 - Names go through `jeffy.core.naming` (`naming.compose(name, side, type)`).
 - Pure math lives in `jeffy.core.mathlib` / `jeffy.deformers.weights` /
-  `jeffy.geometry.symmetry` so it can be unit tested.
+  `jeffy.geometry.spatial` so it can be unit tested.
+- Belt tools wire everything with matrix / utility nodes: **no constraint
+  nodes** (the Maya tests check it).
 - Every user-facing entry point is a function in `jeffy/ui/actions.py`
   decorated with `@tool("Label")`, which gives one undo chunk and friendly errors.
 
@@ -51,42 +53,47 @@ Scene behaviour (the Setup Belt builds) is tested in real Maya, headless:
 
 | You want to add... | Put it in |
 |---|---|
+| a belt tool | a `Setup` subclass with `@scene.register` in `setups/tools/` (declare `SLOTS`, `OPTIONS`, `GUIDES`, write `build_setup`), imported in `setups/tools/__init__.py`. Its panel is generated; add a test in `tests/in_maya/` |
 | a control shape | `controls/library.py` (`SHAPES` + `CATEGORIES`). Tests validate it automatically |
-| a rigging system | a new module in `rig/`, an action in `ui/actions.py`, a button in `ui/pages/rigging_page.py` |
-| a validation check | a `Check` subclass with `@register` in `utils/checks.py` |
-| an auto-rig component | a module in `autorig/components/`, registered with `@components.register`, imported in `autorig/components/__init__.py::_load_builtins` |
-| a template | `autorig/templates.py` (`TEMPLATES`) |
+| a utility button | an action in `ui/actions.py` and a button in `ui/setup_belt/utilities.py` |
 | a menu entry | `ui/menu.py` (`MENU`) |
 | a shelf button | `ui/shelf.py` (`BUTTONS`) |
-| a Setup Belt tool | a `Setup` subclass with `@scene.register` in `setups/tools/` (declare `SLOTS`, `OPTIONS`, `GUIDES`, write `build_setup`), imported in `setups/tools/__init__.py`. The belt panel is generated; add a test in `tests/in_maya/` |
 
-`tests/test_ui.py` fails if the menu, shelf or a page references an action
-that doesn't exist.
+`tests/test_ui.py` fails if the menu, the shelf or the Utilities panel
+references an action that doesn't exist.
 
-### Writing an auto-rig component
+### Writing a belt tool
 
 ```python
-from jeffy.autorig import components
-from jeffy.autorig.components.base import Component
-from jeffy.controls.control import Control
+from jeffy.setups.core import scene
+from jeffy.setups.core.base import Setup
+from jeffy.setups.core.schema import SIZE_OPTION, Option, Slot
+from jeffy.setups.tools import common
 
 
-@components.register
-class WingComponent(Component):
-    TYPE = "wing"
-    DEFAULT_SIDE = "L"
-    GUIDES = [("root", (20, 150, -10), None), ("mid", (60, 150, -15), "root"), ("tip", (100, 150, -20), "mid")]
-    SETTINGS = {"feathers": 5}
+@scene.register
+class Antenna(Setup):
+    TYPE = "antenna"
+    LABEL = "Antenna"
+    CATEGORY = "build"          # or "layer" (first slot: a control of the base setup)
+    ORDER = 60
+    DESCRIPTION = "One control per joint that wobbles."
+    SLOTS = (Slot("start", "Start"), Slot("end", "End"))
+    OPTIONS = (Option("wobble", "Wobble", True), SIZE_OPTION)
 
-    def build_skeleton(self, parent):
-        positions = [self.position(label) for label in ("root", "mid", "tip")]
-        self.joints = self.create_chain(["root", "mid", "tip"], positions, parent=parent)
-        self.bind_joints = self.joints[:-1]
-
-    def build_rig(self):
-        ...  # create controls under self.controls_group, systems under self.systems_group
-        self.add_output("tip", tip_control.node, self.joints[-1])
+    def build_setup(self):
+        joints = common.chain(self.slot_node("start"), self.slot_node("end"))
+        controls = []
+        for index, joint in enumerate(joints):
+            parent = controls[-1].node if controls else None
+            ctl = self.control("fk%d" % index, common.label(joint) + "FK", parent=parent, match=joint)
+            self.add_output("j%d" % index, ctl.node + ".worldMatrix[0]", joint=joint)
+            controls.append(ctl)
+        self.add_anchor(controls[0].zero)  # the chain follows the setup above it
 ```
+
+The base class handles the rest: slot checks, the rig base, the setup tag,
+driving the bind joints from the outputs, mirroring, delete and rebuild.
 
 ## Releasing a new version
 
@@ -94,6 +101,6 @@ class WingComponent(Component):
    API changes, MINOR for new tools, PATCH for fixes).
 2. Move the `[Unreleased]` notes in `CHANGELOG.md` under a new version heading
    (`tests/test_imports.py` checks that the current version is in the changelog).
-3. Commit, tag (`git tag v1.1.0`) and push with tags.
+3. Commit, tag (`git tag v2.1.0`) and push with tags.
 4. Users update with `git pull`. The module file points at the repository, so
    there's nothing to reinstall.

@@ -1,100 +1,66 @@
-"""Jeffy Toolkit - a rigging toolkit for Autodesk Maya.
+"""Jeff Inventory - stackable setup tools for Maya that rig the skeleton you built yourself.
 
 Quick start (inside Maya)::
 
     import jeffy
-    jeffy.show()            # open the toolkit window
-    jeffy.install_menu()    # (re)build the "Jeffy" main menu
+    jeffy.show()            # open the Jeff Inventory window (the Setup Belt)
+    jeffy.install_menu()    # (re)build the "Jeff Inventory" menu
 
-Everything in the toolkit is also usable as a plain Python API, e.g.::
+Every tool is also a Python class (see :mod:`jeffy.setups`)::
 
-    from jeffy.controls import control
-    ctl = control.Control.create("arm", side="L", shape="circle", axis="x")
+    from jeffy.setups.tools.ikfk_limb import IkFkLimb
+    IkFkLimb.build(start="L_shoulder_JNT", mid="L_elbow_JNT", end="L_wrist_JNT", name="arm")
 
 Sub packages
 ------------
-core       naming, attributes, transforms, matrices, node helpers, undo ...
+setups     the belt: framework (core) and tools (rig base, FK, IK/FK, spline, aim, hand, jaw, ribbon...)
+core       naming, attributes, transforms, matrices, math, node helpers, undo
 controls   control curve library and shape tools
-joints     joint creation / orientation / mirroring tools
-geometry   mesh, curve, surface, symmetry and proxy geometry helpers
-rig        rig building blocks (FK, IK, IK/FK, spline, ribbon, foot, spaces ...)
-deformers  skinning, blendshape and generic deformer tools
-utils      pose, bake, scene cleanup, rig validation, connections ...
-autorig    guide based modular auto-rigger
-setups     Setup Belt: stackable setup tools for your own skeleton
-ui         Qt user interface, Maya menu and shelf
+joints     joint creation / orientation helpers used by the tools
+geometry   curves, meshes and spatial queries
+deformers  skin weights export / import
+ui         the window, menu and shelf
 """
 
 from jeffy.version import VERSION_INFO, __version__  # noqa: F401
 
-TOOLKIT_NAME = "Jeffy Toolkit"
+TOOLKIT_NAME = "Jeff Inventory"
 
 
 def show(*args, **kwargs):
-    """Open (or raise) the main Jeffy Toolkit window."""
-    from jeffy.ui import main_window
-
-    return main_window.show(*args, **kwargs)
-
-
-def show_setup_belt(*args, **kwargs):
-    """Open the Setup Belt: stackable setup tools for your own skeleton (see :mod:`jeffy.setups`)."""
+    """Open (or raise) the Jeff Inventory window."""
     from jeffy.ui.setup_belt import window
 
     return window.show(*args, **kwargs)
 
 
-def set_rig_scale(value):
-    """Global size multiplier for every control created from now on.
-
-    ``jeffy.set_rig_scale(0.1)`` makes every setup (controls, ribbons, IK/FK,
-    flexible rig, auto-rig...) draw its controls ten times smaller. Saved with
-    the user settings, so it stays between Maya sessions.
-    """
-    from jeffy.core import settings
-
-    return settings.set_rig_scale(value)
-
-
-def get_rig_scale():
-    """Current global control size multiplier (1.0 by default)."""
-    from jeffy.core import settings
-
-    return settings.rig_scale()
+#: older name, kept so existing shelf buttons and scripts keep working
+show_setup_belt = show
 
 
 def install_menu():
-    """Create (or rebuild) the "Jeffy" menu in Maya's main menu bar."""
+    """Create (or rebuild) the "Jeff Inventory" menu in Maya's main menu bar."""
     from jeffy.ui import menu
 
     return menu.install()
 
 
 def install_shelf():
-    """Create (or rebuild) the "Jeffy" shelf."""
+    """Create (or rebuild) the "Jeff" shelf."""
     from jeffy.ui import shelf
 
     return shelf.install()
 
 
 def reload_toolkit(show_window=False):
-    """Reload every ``jeffy`` module - handy while developing new tools.
-
-    Closes the UI first so that no widget keeps references to stale classes.
-    """
+    """Reload every ``jeffy`` module (development). Closes the window first."""
     import sys
 
     try:
-        from jeffy.ui import main_window
+        from jeffy.ui.setup_belt import window
 
-        main_window.close()
+        window.close()
     except Exception:  # pragma: no cover - UI may not be importable in batch
-        pass
-    try:
-        from jeffy.ui.setup_belt import window as belt_window
-
-        belt_window.close()
-    except Exception:  # pragma: no cover
         pass
 
     names = sorted(name for name in sys.modules if name == "jeffy" or name.startswith("jeffy."))

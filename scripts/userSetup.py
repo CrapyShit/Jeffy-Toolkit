@@ -1,4 +1,4 @@
-"""Jeffy Toolkit startup - builds the "Jeffy" menu once Maya's UI is ready.
+"""Jeff Inventory startup - builds the "Jeff Inventory" menu once Maya's UI is ready.
 
 Maya runs every ``userSetup.py`` found on its Python path, so this file is
 picked up automatically when the toolkit is installed as a Maya module.

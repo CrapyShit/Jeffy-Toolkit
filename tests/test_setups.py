@@ -84,7 +84,8 @@ def test_belt_window_builds_offscreen():
     layers = labels[labels.index("LAYERS"):labels.index("SCENE")]
     assert set(build) >= {"Spline IK/FK", "Aim", "Hand / Fingers", "Jaw / Hinge"}
     assert set(layers) >= {"Ribbon", "Twist", "Reverse Foot", "Fleshy Lids", "Spaces"}
-    assert labels[-2:] == ["SCENE", "Setups"]
+    assert labels[-3:] == ["SCENE", "Setups", "Utilities"]
+    assert belt.windowTitle().startswith("Jeff Inventory")
     for setup_type, cls in scene.load_tools().items():
         tool_panel = belt.panels[setup_type]
         assert isinstance(tool_panel, panel.ToolPanel), "%s panel failed" % setup_type

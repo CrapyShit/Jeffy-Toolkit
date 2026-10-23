@@ -1,23 +1,14 @@
-"""A "Jeffy" shelf with the most used tools."""
+"""A "Jeff" shelf: the window and the everyday utilities."""
 
 from maya import cmds, mel
 
-SHELF_NAME = "Jeffy"
+SHELF_NAME = "Jeff"
 
 BUTTONS = [
-    ("JEFFY", "Open Jeffy Toolkit", "import jeffy; jeffy.show()"),
-    ("BELT", "Open the Setup Belt", "from jeffy.ui import actions; actions.show_setup_belt()"),
-    ("CTL", "Create control on selection", "from jeffy.ui import actions; actions.create_controls()"),
-    ("ORI", "Orient joints (plane)", "from jeffy.ui import actions; actions.orient_joints(up_mode='plane')"),
-    ("FK", "FK chain on selection", "from jeffy.ui import actions; actions.build_fk()"),
-    ("IKFK", "IK/FK limb on selection", "from jeffy.ui import actions; actions.build_ikfk()"),
-    ("SPC", "Space switch: control then targets", "from jeffy.ui import actions; actions.add_space_switch()"),
-    ("MIR", "Mirror control shapes", "from jeffy.ui import actions; actions.mirror_shapes()"),
+    ("JEFF", "Open Jeff Inventory", "import jeffy; jeffy.show()"),
+    ("MIR", "Mirror control shapes L <> R", "from jeffy.ui import actions; actions.mirror_shapes()"),
     ("SKN>", "Export skin weights", "from jeffy.ui import actions; actions.export_skin_weights()"),
     (">SKN", "Import skin weights", "from jeffy.ui import actions; actions.import_skin_weights()"),
-    ("SWAP", "IK/FK match + switch", "from jeffy.ui import actions; actions.ikfk_switch()"),
-    ("RST", "Reset controls", "from jeffy.ui import actions; actions.reset_controls()"),
-    ("CHK", "Rig check", "from jeffy.ui import actions; actions.run_checks()"),
 ]
 
 
