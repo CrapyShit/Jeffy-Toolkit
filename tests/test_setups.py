@@ -47,7 +47,8 @@ def test_slot_normalize():
 
 def test_registry():
     tools = scene.load_tools()
-    assert set(tools) >= {"rig_base", "fk_chain", "ikfk_limb", "spaces"}
+    assert set(tools) >= {"rig_base", "fk_chain", "ikfk_limb", "spaces", "ribbon", "twist", "reverse_foot", "spline",
+                          "aim", "lids", "jaw", "hand"}
     for setup_type, cls in tools.items():
         assert issubclass(cls, Setup) and cls.TYPE == setup_type
         assert cls.LABEL and cls.DESCRIPTION
@@ -78,7 +79,11 @@ def test_belt_window_builds_offscreen():
 
     belt = window.SetupBeltWindow()
     labels = [belt.tool_list.item(i).text().strip() for i in range(belt.tool_list.count())]
-    assert labels[:5] == ["BUILD", "Rig Base", "FK Chain", "IK/FK Limb", "LAYERS"]
+    assert labels[:4] == ["BUILD", "Rig Base", "FK Chain", "IK/FK Limb"]
+    build = labels[:labels.index("LAYERS")]
+    layers = labels[labels.index("LAYERS"):labels.index("SCENE")]
+    assert set(build) >= {"Spline IK/FK", "Aim", "Hand / Fingers", "Jaw / Hinge"}
+    assert set(layers) >= {"Ribbon", "Twist", "Reverse Foot", "Fleshy Lids", "Spaces"}
     assert labels[-2:] == ["SCENE", "Setups"]
     for setup_type, cls in scene.load_tools().items():
         tool_panel = belt.panels[setup_type]

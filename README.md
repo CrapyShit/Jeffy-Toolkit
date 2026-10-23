@@ -95,8 +95,8 @@ jeffy.show_setup_belt()     # or Jeffy menu > Open Setup Belt, or the BELT shelf
 | Stage | Tools |
 |---|---|
 | 1 (built) | **Rig Base** (Global / Root, groups, visibility), **FK Chain** (master control, FK stretch, orient spaces), **IK/FK Limb** (stretch, soft IK, pin, pole or no-flip knee, seamless snap), **Spaces** (custom spaces on any top control) |
-| 2 | Ribbon (bendy limbs with their own deform joints), Twist, Reverse Foot |
-| 3 | Spline IK/FK (spine, neck, tail), Hand / Finger poses, Aim (eyes), Jaw / Hinge, Fleshy Lids |
+| 2 (built) | IK/FK **auto-snap** (switching keeps the bend), **Ribbon** (bendy limbs with their own deform joints, volume), **Twist** (counter / forward twist joints), **Reverse Foot** (roll control + ground pivots, FK toe) |
+| 3 (built) | **Spline IK/FK** (spine with COG / independent hips, neck with head spaces, tails with an automatic wave), **Hand / Fingers** (poses, masters, metacarpals, IK fingers), **Aim** (eyes), **Jaw / Hinge** (chin control), **Fleshy Lids** |
 
 Everything is matrix based: no constraint nodes, the bind joints keep their
 hierarchy and joint orients. Setups attach to each other automatically (in

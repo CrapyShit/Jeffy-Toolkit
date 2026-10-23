@@ -33,6 +33,33 @@ and the project uses [Semantic Versioning](https://semver.org/).
     options, Preview / Build / Rebuild / Delete) and a Setups list with IK/FK
     snap and space switching.
   - `tests/in_maya`: headless tests in real Maya (`mayapy tests/in_maya/run.py`).
+- **Setup Belt stage 2**:
+  - **IK/FK auto-snap**: changing `ikFk` snaps the other side first, so the
+    bend is kept (`autoSnap` on the settings control; a script node reinstalls
+    the callback when the scene opens). Layers take part in snapping.
+  - **Ribbon** layer: one ribbon per segment of an IK/FK Limb or FK Chain
+    drives its own deform joints (5 per segment by default), bend controls at
+    mid segments and inner joints, counter twist from the parent, `volume`,
+    game safe parenting.
+  - **Twist** layer: counter (upper arm / thigh) and forward (forearm / shin)
+    twist joints under each segment's first joint.
+  - **Reverse Foot** layer: roll control (roll / bank / ball twist with break
+    and straight angles, toe tap, heel / toe twist), grabbable ground pivots,
+    FK toe control, foot guides.
+- **Setup Belt stage 3**:
+  - **Spline IK/FK**: spine (COG, independent hips, hips / mid / chest IK
+    with an FK layer), neck (head control with orient spaces, neck by
+    default) and chain (tails: IK/FK switch, automatic wave with time). A
+    ribbon gives the twist, a hidden spline IK keeps the lengths (`stretch`),
+    `volume` for film.
+  - **Aim**: eyes with a master target, per-eye targets and FK overrides.
+  - **Fleshy Lids** layer: lid joints (one or many per lid) follow the eye
+    by `eyeFollow` / `sideFollow`, plus a control per lid.
+  - **Jaw / Hinge**: a chin control you translate (open, side, forward /
+    back), clamped.
+  - **Hand / Fingers**: FK, metacarpals, master controls, poses (curl,
+    spread, fist, relax, cup, per finger curl) on a hand control, IK fingers
+    for contact.
 - **Face tab, rebuilt in rig building order** (antCGi style joint / ribbon
   face rig plus blendshapes, with the Python API in `jeffy.rig.face`):
   - *Face Ribbon From Edge Loop* (`face.ribbon`) for lips, brows and cheek
